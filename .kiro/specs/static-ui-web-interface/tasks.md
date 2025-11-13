@@ -62,6 +62,9 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 
 
+
+
+
   - Set up shadcn/ui components (Button, Input, Select, Dialog)
   - Customize components with Frutiger Aero theme (green/blue)
   - Create LoadingSpinner component with theme colors
