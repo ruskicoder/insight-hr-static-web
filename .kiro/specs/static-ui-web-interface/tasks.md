@@ -33,7 +33,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 0: AWS Infrastructure Foundation
 
-- [ ] 0.1 Verify and update AWS region configuration
+- [x] 0.1 Verify and update AWS region configuration
   - Scan aws-secret.md for current region settings
   - Update all AWS resources to use ap-southeast-1 (Singapore)
   - Verify AWS CLI is configured with correct credentials
@@ -41,7 +41,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Update aws-secret.md with AWS_REGION=ap-southeast-1
   - _Requirements: 9.1, 11.4_
 
-- [ ] 0.2 Set up DynamoDB tables in Singapore region
+- [x] 0.2 Set up DynamoDB tables in Singapore region
   - Check if DynamoDB tables exist in ap-southeast-1: `aws dynamodb list-tables --region ap-southeast-1`
   - If tables don't exist, create them with proper schema:
     - Users table (PK: userId, GSI: email-index)
@@ -55,7 +55,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Update aws-secret.md with table names and ARNs
   - _Requirements: 3.5, 5.6, 6.1, 8.2_
 
-- [ ] 0.3 Set up S3 buckets in Singapore region
+- [x] 0.3 Set up S3 buckets in Singapore region
   - Check if S3 buckets exist: `aws s3 ls --region ap-southeast-1`
   - Create insighthr-uploads-sg bucket for file uploads (if not exists)
   - Create insighthr-web-app-sg bucket for static hosting (if not exists)
@@ -65,11 +65,11 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Update aws-secret.md with bucket names and URLs
   - _Requirements: 5.6, 9.1_
 
-- [ ] 0.4 Set up Cognito User Pool in Singapore region
+- [x] 0.4 Set up Cognito User Pool in Singapore region
   - Check if Cognito User Pool exists in ap-southeast-1
   - If not exists, create User Pool with:
     - Email/password authentication
-    - Google OAuth provider configuration
+    - Google OAuth provider configuration (Note: Google OAuth needs manual configuration)
     - Password policy (min 8 chars, uppercase, lowercase, number)
     - Email verification enabled
   - Create User Pool Client (app client)
@@ -78,17 +78,17 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Update aws-secret.md with User Pool ID, Client ID, and domain
   - _Requirements: 1.1, 1.2, 1.5_
 
-- [ ] 0.5 Set up API Gateway in Singapore region
+- [x] 0.5 Set up API Gateway in Singapore region
   - Check if API Gateway exists in ap-southeast-1
   - If not exists, create REST API Gateway
   - Create Cognito authorizer for JWT validation
-  - Set up CORS configuration for all endpoints
+  - Set up CORS configuration for all endpoints (Note: CORS will be configured per endpoint)
   - Create /dev deployment stage
   - Update aws-secret.md with API Gateway ID and URL
   - Note: Individual endpoints will be created with each Lambda function
   - _Requirements: 11.6_
 
-- [ ] 0.6 Set up IAM roles for Lambda execution
+- [x] 0.6 Set up IAM roles for Lambda execution
   - Check if Lambda execution role exists
   - If not exists, create role with:
     - Trust policy for lambda.amazonaws.com
