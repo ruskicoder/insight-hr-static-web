@@ -12,6 +12,29 @@ The InsightHR Static Web Interface is a React + TypeScript single-page applicati
 - **Type-Safe**: TypeScript for compile-time error detection
 - **Responsive**: Mobile-first design approach
 - **Modern UI**: Frutiger Aero theme (green/blue) with clean, intuitive interface
+- **Regional Deployment**: All AWS infrastructure deployed in ap-southeast-1 (Singapore) region
+
+**Development Workflow:**
+Each major feature follows this development order:
+1. **Static Frontend Framework**: Build UI components with full Frutiger Aero styling
+2. **Stub Function**: Create fully working local Express.js API server (`localhost:4000`) with in-memory data for demo/testing
+3. **AWS Infrastructure**: Set up Lambda functions, DynamoDB tables, and API Gateway endpoints in ap-southeast-1
+4. **Deploy to Cloud**: Deploy Lambda functions and connect to API Gateway
+5. **Test**: Verify end-to-end functionality with real AWS services
+
+**Testing Environment:**
+- **Test Routes**: All test/demo pages accessible at `localhost:5173/test/*`
+  - `/test/login` - Authentication testing
+  - `/test/kpi` - KPI management testing
+  - `/test/formula` - Formula builder testing
+  - `/test/upload` - File upload testing
+  - `/test/dashboard` - Dashboard testing
+  - `/test/users` - User management testing
+  - `/test/notifications` - Notification rules testing
+  - `/test/chatbot` - Chatbot testing
+- **Production Routes**: Main app at `localhost:5173/*` (no `/test` prefix)
+- **Stub API**: Local Express.js server on `localhost:4000` mimicking AWS Lambda responses
+- **Test Folder**: Separate `/test` folder for demo components and test pages
 
 ## Architecture
 

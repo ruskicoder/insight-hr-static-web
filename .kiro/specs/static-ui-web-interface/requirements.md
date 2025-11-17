@@ -8,6 +8,17 @@ This document describes the requirements for developing the Static UI Web Interf
 
 **Tech Stack:** React + TypeScript, integrated with Python Lambda functions via API Gateway and DynamoDB.
 
+**AWS Infrastructure:** All AWS services are deployed in the ap-southeast-1 (Singapore) region for optimal performance and data residency.
+
+**Development Workflow:** For each major feature, development follows this order:
+1. Create static frontend framework (UI components with full styling)
+2. Create stub function (fully working local API server for demo/testing)
+3. Create AWS infrastructure (Lambda, DynamoDB, API Gateway)
+4. Deploy to cloud (deploy Lambda functions and connect to API Gateway)
+5. Test (verify end-to-end functionality with real AWS services)
+
+**Testing Environment:** All test/demo pages are accessible at `localhost:5173/test/*` (e.g., `/test/login`, `/test/dashboard`) with a separate test folder structure. Production routes use `localhost:5173/*` without the `/test` prefix.
+
 ## Glossary
 
 - **InsightHR_System**: Hệ thống nền tảng tự động hóa HR serverless trên AWS
