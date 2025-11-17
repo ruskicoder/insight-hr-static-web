@@ -12,7 +12,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 **Development Strategy:**
 - Set up AWS infrastructure as we go (check existing → create if missing)
 - Build UI components alongside backend Lambda functions
-- Apply Frutiger Aero theme from the start
+- Apply Apple Blue theme from the start (inspired by Apple's design language)
 - Use component library optimized for S3 deployment
 - TypeScript in non-strict mode for rapid development
 - Feature branches: `feat-[task-name]`
@@ -105,7 +105,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 - [x] 1. Project setup and foundation
   - Initialize Vite + React + TypeScript project with required dependencies
   - Install shadcn/ui, React Hook Form, Zustand, Axios, Recharts
-  - Configure Tailwind CSS with Frutiger Aero theme (green/blue colors)
+  - Configure Tailwind CSS with Apple Blue theme (inspired by Apple's design language)
   - Set up project structure (components, pages, services, store, types, utils)
   - Create .env files with AWS credentials from aws-secret.md
   - Create .env.example with placeholder values
@@ -123,24 +123,14 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - _Requirements: 11.5_
 
 - [x] 1.2 Create theme and global styles
-
-
-  - Implement Frutiger Aero color palette in theme.ts
+  - Implement Apple Blue color palette in theme.ts (inspired by Apple's design language)
   - Create global CSS with typography and spacing variables
   - Set up Tailwind configuration with custom theme
   - _Requirements: 10.2, 10.3_
 
-- [x] 2. Common UI components with Frutiger Aero styling
-
-
-
-
-
-
-
-
-  - Set up shadcn/ui components (Button, Input, Select, Dialog)
-  - Customize components with Frutiger Aero theme (green/blue)
+- [x] 2. Common UI components with Apple Blue styling
+  - Set up shadcn/ui components (Button, Input, Select, Dialog, Card, Textarea)
+  - Customize components with Apple Blue theme
   - Create LoadingSpinner component with theme colors
   - Create Toast notification component
   - Create ConfirmDialog component
@@ -150,19 +140,15 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - _Requirements: 10.3, 10.5, 9.5, 10.2_
 
 - [x] 3. Routing and layout structure
-
-
-
-
-
-
   - Set up React Router with route configuration
   - Create MainLayout component with Header and Sidebar
   - Create ProtectedRoute component for role-based access
   - Implement navigation menu with role-based visibility
   - _Requirements: 1.2, 10.1_
 
-- [ ] 4. API service layer with AWS integration
+- [x] 4. API service layer with AWS integration
+
+
   - Create Axios instance with base configuration pointing to API Gateway
   - Implement request interceptor for JWT token attachment
   - Implement response interceptor for token refresh and error handling

@@ -11,12 +11,12 @@ The InsightHR Static Web Interface is a React + TypeScript single-page applicati
 - **Component-Based**: Modular React components for maintainability
 - **Type-Safe**: TypeScript for compile-time error detection
 - **Responsive**: Mobile-first design approach
-- **Modern UI**: Frutiger Aero theme (green/blue) with clean, intuitive interface
+- **Modern UI**: Apple Blue theme with clean, intuitive interface inspired by Apple's design language
 - **Regional Deployment**: All AWS infrastructure deployed in ap-southeast-1 (Singapore) region
 
 **Development Workflow:**
 Each major feature follows this development order:
-1. **Static Frontend Framework**: Build UI components with full Frutiger Aero styling
+1. **Static Frontend Framework**: Build UI components with full Apple Blue theme styling
 2. **Stub Function**: Create fully working local Express.js API server (`localhost:4000`) with in-memory data for demo/testing
 3. **AWS Infrastructure**: Set up Lambda functions, DynamoDB tables, and API Gateway endpoints in ap-southeast-1
 4. **Deploy to Cloud**: Deploy Lambda functions and connect to API Gateway

@@ -4,7 +4,7 @@
 
 This document describes the requirements for developing the Static UI Web Interface of InsightHR - an HR automation platform based on AWS serverless architecture. The web interface will be hosted on Amazon S3 and distributed via CloudFront, providing user experience for three main groups: Admin/HR, Manager, and Employee.
 
-**Project Scope:** This is an MVP (Minimum Viable Product) with a 1-month development timeline. The focus is on core functionality with a modern, clean UI using a Frutiger Aero theme (green/blue color scheme).
+**Project Scope:** This is an MVP (Minimum Viable Product) with a 1-month development timeline. The focus is on core functionality with a modern, clean UI using an Apple Blue theme inspired by Apple's design language.
 
 **Tech Stack:** React + TypeScript, integrated with Python Lambda functions via API Gateway and DynamoDB.
 
@@ -156,7 +156,7 @@ This document describes the requirements for developing the Static UI Web Interf
 #### Acceptance Criteria
 
 1. THE Static_Web_Interface SHALL implement a consistent navigation menu across all pages
-2. THE Static_Web_Interface SHALL use a Frutiger Aero theme with green/blue color scheme and modern typography throughout the application
+2. THE Static_Web_Interface SHALL use an Apple Blue theme with modern typography throughout the application inspired by Apple's design language
 3. THE Static_Web_Interface SHALL default to light mode
 4. THE Static_Web_Interface SHALL provide clear visual feedback for user actions such as button clicks and form submissions
 5. THE Static_Web_Interface SHALL display loading indicators during asynchronous operations
