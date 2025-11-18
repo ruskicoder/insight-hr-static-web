@@ -1,5 +1,6 @@
 # AWS Secrets - DO NOT COMMIT
 aws-secret.md
+client_secret_*.json
 
 # Environment variables
 .env
