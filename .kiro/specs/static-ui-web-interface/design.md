@@ -212,10 +212,31 @@ src/
 - Form validation with error messages
 - Integration with AWS Cognito
 
+**RegisterForm.tsx**
+- Email, password, and name input fields
+- Password strength validation
+- Form validation with error messages
+- Auto-confirmation: New users are automatically confirmed in Cognito upon registration
+- No manual approval required (admin approval system is a future enhancement)
+- Immediate login after successful registration
+- Integration with AWS Cognito
+
 **GoogleAuthButton.tsx**
 - Handles Google OAuth flow via Cognito
 - Displays Google branding
 - Error handling for OAuth failures
+
+**User Registration Strategy:**
+- **Current Approach (MVP)**: Auto-approve all new user registrations
+  - Users can self-register through the registration form
+  - Accounts are automatically confirmed in Cognito (no email verification required)
+  - Users are immediately logged in after registration with Employee role by default
+  - HR Admins can manually create users with specific roles through the Admin Panel
+- **Future Enhancement**: Admin approval workflow
+  - Pending user registrations table in DynamoDB
+  - Admin UI to approve/reject pending registrations
+  - Email notifications for approval status
+  - This feature is documented for future implementation but not included in MVP
 
 #### 2. Admin Panel Components
 

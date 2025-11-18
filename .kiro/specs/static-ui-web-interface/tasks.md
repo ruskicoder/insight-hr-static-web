@@ -158,7 +158,10 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 2: Authentication System
 
-- [ ] 5. Frontend - Login and registration UI (static framework)
+- [x] 5. Frontend - Login and registration UI (static framework)
+
+
+
   - Create LoginForm component with email/password fields using React Hook Form
   - Create RegisterForm component for self-registration
   - Create GoogleAuthButton component for OAuth flow
@@ -169,7 +172,11 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create test page at `/test/login` for isolated testing
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
-- [ ] 5.1 Stub API - Authentication endpoints (local Express server)
+- [x] 5.1 Stub API - Authentication endpoints (local Express server)
+
+
+
+
   - Create `/stub-api` folder for local development server
   - Set up Express.js server on `localhost:4000`
   - Create in-memory user store with demo users (admin, manager, employee)
@@ -182,7 +189,11 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document stub API in `/stub-api/README.md`
   - _Requirements: 1.1, 1.2, 1.4, 1.5_
 
-- [ ] 5.2 Frontend - Integrate with stub API
+- [x] 5.2 Frontend - Integrate with stub API
+
+
+
+
   - Install and configure amazon-cognito-identity-js
   - Update authService to call stub API endpoints
   - Implement login method calling stub API
@@ -194,7 +205,18 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify role-based routing works with stub data
   - _Requirements: 1.1, 1.2, 1.4, 1.5_
 
-- [ ] 5.3 AWS Infrastructure - Authentication setup
+- [x] 5.3 AWS Infrastructure - Authentication setup
+
+
+
+
+
+
+
+
+
+
+
   - Verify Cognito User Pool exists in ap-southeast-1 (from task 0.4)
   - Check if auth Lambda functions exist in ap-southeast-1
   - Create Lambda function: auth-login-handler
@@ -202,13 +224,24 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - Handler: Validate Cognito tokens, query Users DynamoDB table
     - Environment variables: USER_POOL_ID, DYNAMODB_USERS_TABLE, AWS_REGION
   - Create Lambda function: auth-register-handler
-    - Create Cognito user, insert into Users DynamoDB table
+    - Create Cognito user with auto-confirmation (admin_confirm_sign_up)
+    - Insert user into Users DynamoDB table with Employee role by default
+    - Return tokens immediately after registration
+    - Note: Auto-approval is MVP approach; admin approval workflow is future enhancement
   - Create Lambda function: auth-google-handler
     - Handle Google OAuth callback, create/update user
   - Package Lambda functions with dependencies
-  - _Requirements: 1.1, 1.2, 1.4, 1.5_
 
-- [ ] 5.4 AWS Deployment - Authentication Lambda functions
+
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+
+- [x] 5.4 AWS Deployment - Authentication Lambda functions
+
+
+
+
+
+
   - Deploy auth-login-handler to ap-southeast-1
   - Deploy auth-register-handler to ap-southeast-1
   - Deploy auth-google-handler to ap-southeast-1
@@ -222,18 +255,70 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Update aws-secret.md with Lambda ARNs and API endpoints
   - _Requirements: 1.1, 1.2, 1.4, 1.5_
 
-- [ ] 5.5 Frontend - Switch to AWS endpoints and test
+- [x] 5.5 Frontend - Switch to AWS endpoints and test
+
+
+
+
+
+
+
+
+
+
+
   - Update authService to use real AWS API Gateway URLs
   - Update .env with production API Gateway URL
   - Create environment toggle (stub vs AWS)
-  - Test authentication flow with real Cognito
+  - Test authentication flow with real Cognito on localhost
   - Create backdoor admin account in Cognito for testing
   - Test role-based routing (Admin, Manager, Employee)
   - Implement logout functionality (clear tokens, Cognito sign out)
   - Implement automatic token refresh on expiration
   - Add session persistence across page reloads
-  - Verify end-to-end authentication works
+  - Verify end-to-end authentication works on localhost
   - _Requirements: 1.2, 1.5, 1.6_
+
+- [x] 5.6 Build and deploy authentication phase to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3 bucket: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache (if CloudFront exists): `aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"`
+  - Test live deployed website authentication flow
+  - Verify CORS configuration allows S3-hosted frontend to call API Gateway
+  - Test login, register, and logout on live site
+  - Document deployment URL in aws-secret.md
+  - Fix: Added OPTIONS methods to API Gateway endpoints for CORS preflight support
+  - _Requirements: 1.2, 1.5, 9.1_
+
+- [x] 5.7 Set up CloudFront distribution for HTTPS and cleaner URL
+
+
+
+
+
+  - Create CloudFront distribution for S3 website bucket
+  - Configure CloudFront origin to point to S3 website endpoint (insighthr-web-app-sg.s3-website-ap-southeast-1.amazonaws.com)
+  - Set origin protocol policy to HTTP only (S3 website endpoints don't support HTTPS)
+  - Configure default cache behavior (compress objects, redirect HTTP to HTTPS)
+  - Set default root object to index.html
+  - Configure custom error responses (404 -> /index.html for SPA routing)
+  - Enable CloudFront distribution and wait for deployment (Status: Deployed)
+  - Test HTTPS access via CloudFront domain (e.g., https://d1234abcd.cloudfront.net)
+  - Update CORS configuration on API Gateway to allow CloudFront domain
+  - Update aws-secret.md with CloudFront distribution ID and domain URL
+  - Note: CloudFront provides free HTTPS with default *.cloudfront.net domain (no custom domain needed)
+  - _Requirements: 9.1, 11.4_
+
+- [ ] 5.8 Fix stub API Google OAuth login/register
+  - Update stub-api/server.js to implement Google OAuth mock flow
+  - Add POST /auth/google endpoint that accepts Google token or user info
+  - Return mock JWT with user data (same format as login/register)
+  - Create mock Google user in memory store if not exists
+  - Test Google OAuth flow with stub API
+  - Verify frontend Google button works with stub endpoint
+  - Document stub Google OAuth flow in stub-api/README.md
+  - _Requirements: 1.4, 1.5_
 
 ### Phase 3: User Management
 
@@ -282,10 +367,19 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 - [ ] 6.5 Frontend - Switch to AWS endpoints and test
   - Update userService to use real AWS API Gateway URLs
-  - Test profile page with real DynamoDB data
+  - Test profile page with real DynamoDB data on localhost
   - Verify role-based access control works
-  - Test end-to-end user management flow
+  - Test end-to-end user management flow on localhost
   - _Requirements: 2.1, 2.2, 2.4, 2.5_
+
+- [ ] 6.6 Build and deploy user management phase to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website user profile and management features
+  - Verify all user operations work on live site
+  - _Requirements: 2.1, 2.2, 9.1_
 
 ### Phase 4: KPI Management
 
@@ -340,10 +434,19 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 - [ ] 7.5 Frontend - Switch to AWS endpoints and test
   - Update kpiService to use real AWS API Gateway URLs
-  - Test KPI management with real DynamoDB data
+  - Test KPI management with real DynamoDB data on localhost
   - Verify all CRUD operations work end-to-end
   - Test category filtering with real data
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [ ] 7.6 Build and deploy KPI management phase to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website KPI management features
+  - Verify KPI create, edit, disable, and category filtering work on live site
+  - _Requirements: 3.1, 3.2, 9.1_
 
 ### Phase 5: Formula Builder
 
@@ -401,11 +504,20 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 - [ ] 8.5 Frontend - Switch to AWS endpoints and test
   - Update formulaService to use real AWS API Gateway URLs
-  - Test formula creation with real DynamoDB data
+  - Test formula creation with real DynamoDB data on localhost
   - Verify validation works with real backend
   - Test multiple active formulas
   - Test department-specific formulas
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
+
+- [ ] 8.6 Build and deploy formula builder phase to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website formula builder features
+  - Verify formula creation, validation, and weight assignment work on live site
+  - _Requirements: 4.1, 4.2, 9.1_
 
 ### Phase 6: File Upload System
 
@@ -463,11 +575,21 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 - [ ] 9.5 Frontend - Switch to AWS endpoints and test
   - Update uploadService to use real AWS API Gateway URLs
-  - Test file upload to real S3 bucket
+  - Test file upload to real S3 bucket on localhost
   - Test file processing with real Lambda
   - Verify data appears in DynamoDB
   - Test end-to-end upload and mapping flow
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
+
+- [ ] 9.6 Build and deploy file upload phase to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website file upload features
+  - Verify file upload, column mapping, and data processing work on live site
+  - Test with CSV and Excel files on live site
+  - _Requirements: 5.1, 5.6, 9.1_
 
 ### Phase 7: Performance Dashboard
 
@@ -524,12 +646,22 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 - [ ] 10.5 Frontend - Switch to AWS endpoints and test
   - Update performanceService to use real AWS API Gateway URLs
-  - Test dashboard with real DynamoDB data
+  - Test dashboard with real DynamoDB data on localhost
   - Test filtering with real data
   - Test charts with real performance scores
   - Test CSV export with real data
   - Verify role-based access works
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+
+- [ ] 10.6 Build and deploy dashboard phase to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website dashboard features
+  - Verify charts, filters, and CSV export work on live site
+  - Test role-based data visibility on live site
+  - _Requirements: 6.1, 6.2, 9.1_
 
 ### Phase 8: Admin Features
 
@@ -579,9 +711,18 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 - [ ] 11.5 Frontend - Switch to AWS endpoints and test
   - Update userService to use real AWS API Gateway URLs
-  - Test user management with real Cognito and DynamoDB
+  - Test user management with real Cognito and DynamoDB on localhost
   - Test bulk user creation end-to-end
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+
+- [ ] 11.6 Build and deploy admin user management to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website admin user management features
+  - Verify manual and bulk user creation work on live site
+  - _Requirements: 2.4, 9.1_
 
 - [ ] 12. Frontend - Notification rules UI (static framework)
   - Create Notification types and interfaces
@@ -638,10 +779,19 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 - [ ] 12.5 Frontend - Switch to AWS endpoints and test
   - Update notificationService to use real AWS API Gateway URLs
-  - Test notification rules with real DynamoDB
+  - Test notification rules with real DynamoDB on localhost
   - Test email sending via SNS
   - Verify notification history works
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
+
+- [ ] 12.6 Build and deploy notification features to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website notification features
+  - Verify notification rule creation and email sending work on live site
+  - _Requirements: 8.1, 8.2, 9.1_
 
 ### Phase 9: Chatbot Integration
 
@@ -693,10 +843,19 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 - [ ] 13.5 Frontend - Switch to AWS endpoints and test
   - Update chatbotService to use real AWS API Gateway URLs
-  - Test chatbot with real Lex/Bedrock integration
+  - Test chatbot with real Lex/Bedrock integration on localhost
   - Verify data queries work with real DynamoDB
   - Test various HR-related queries
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+
+- [ ] 13.6 Build and deploy chatbot features to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website chatbot features
+  - Verify chatbot queries and responses work on live site
+  - _Requirements: 7.1, 7.2, 9.1_
 
 ### Phase 10: Page Integration
 
@@ -759,20 +918,23 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Fix identified bugs
   - _Requirements: All_
 
-- [ ] 20. CloudFront setup and deployment
+- [ ] 20. CloudFront setup and final production deployment
   - Check if CloudFront distribution exists
   - If not exists, create CloudFront distribution:
-    - Origin: S3 web-app bucket
-    - Enable HTTPS with ACM certificate
-    - Configure custom error responses (404 → index.html)
-    - Set cache behaviors
-  - Build production bundle with Vite
-  - Test production build locally
-  - Deploy to S3 bucket in ap-southeast-1
-  - Invalidate CloudFront cache
-  - Create deployment script for automated deployments
-  - Document deployment process
-  - Update aws-secret.md with CloudFront URL
+    - Origin: S3 web-app bucket (insighthr-web-app-sg)
+    - Enable HTTPS with ACM certificate (optional for MVP)
+    - Configure custom error responses (404 → index.html for SPA routing)
+    - Set cache behaviors for optimal performance
+    - Configure origin access identity for S3
+  - Build final production bundle with Vite
+  - Test production build locally with `npm run preview`
+  - Deploy to S3 bucket: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1 --delete`
+  - Invalidate CloudFront cache: `aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"`
+  - Create automated deployment script (deploy.ps1 or deploy.sh)
+  - Test complete application on CloudFront URL
+  - Verify all features work end-to-end on production
+  - Document deployment process in README.md
+  - Update aws-secret.md with CloudFront URL and distribution ID
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
 - [ ] 6. Admin Panel - KPI Management
@@ -969,9 +1131,12 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 **Task Order for Each Major Function:**
 1. **Create static frontend framework** - Build UI components with full styling
 2. **Create stub function** - Build fully working local stub API (Express.js server)
-3. **Create AWS infrastructure** - Set up Lambda, DynamoDB, API Gateway in ap-southeast-1
-4. **Deploy to cloud** - Deploy Lambda functions and connect to API Gateway
-5. **Test** - Verify end-to-end functionality with real AWS services
+3. **Test with stub API** - Verify functionality works on localhost with stub
+4. **Create AWS infrastructure** - Set up Lambda, DynamoDB, API Gateway in ap-southeast-1
+5. **Deploy backend to cloud** - Deploy Lambda functions and connect to API Gateway
+6. **Test localhost with AWS** - Test localhost frontend calling real AWS API endpoints
+7. **Deploy frontend to S3** - Build and deploy static site to S3
+8. **Test live deployment** - Verify end-to-end functionality on deployed website
 
 **Local Development & Testing:**
 - **Test environment**: All test/demo pages accessible at `localhost:5173/test/*`
@@ -983,6 +1148,16 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - etc.
 - **Stub API**: Local Express.js server on `localhost:4000` mimicking AWS Lambda responses
 - **Production routes**: Main app at `localhost:5173/*` (no /test prefix)
+- **Deployment testing**: After each major phase, deploy to S3 and test live site
+
+**Deployment Strategy:**
+- **Incremental deployment**: Deploy to S3 after completing each major feature phase
+- **S3 bucket**: insighthr-web-app-sg (static website hosting enabled)
+- **Build command**: `npm run build` (creates dist/ folder)
+- **Deploy command**: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+- **CloudFront**: Optional for MVP, set up in final phase for CDN and HTTPS
+- **CORS**: API Gateway must allow requests from both localhost and S3/CloudFront URLs
+- **Testing sequence**: localhost with stub → localhost with AWS → live site with AWS
 
 **AWS Infrastructure:**
 - **Check before create**: Always scan for existing AWS resources before creating new ones
@@ -1017,6 +1192,23 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 - Chatbot shows instructions, no suggested queries
 - No empty state designs - show blank/nothing when no data
 - Keep existing codebase - only add/modify as needed
+- **User Registration**: Auto-approve all new registrations (no manual approval required for MVP)
+
+### Future Enhancements (Post-MVP)
+
+The following features are documented for future implementation but not included in the current MVP:
+
+1. **Admin Approval Workflow for User Registration**
+   - Pending users table in DynamoDB
+   - Admin UI to view and approve/reject pending registrations
+   - Email notifications for approval status
+   - Approval history and audit trail
+   - Bulk approval actions
+
+2. **Email Verification for Self-Registration**
+   - Cognito email verification flow
+   - Verification code input UI
+   - Resend verification email functionality
 
 ### AWS Resource Checklist
 

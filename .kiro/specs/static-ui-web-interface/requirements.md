@@ -43,10 +43,11 @@ This document describes the requirements for developing the Static UI Web Interf
 
 1. THE Static_Web_Interface SHALL integrate with Cognito_Auth for user authentication supporting both email/password and Google OAuth
 2. THE Static_Web_Interface SHALL provide both self-registration and HR admin-created account options
-3. WHEN a user submits valid credentials, THE Static_Web_Interface SHALL redirect the user to the appropriate dashboard based on their role (Admin, Manager, or Employee)
-4. WHEN authentication fails, THE Static_Web_Interface SHALL display an error message indicating invalid credentials
-5. THE Static_Web_Interface SHALL provide password reset functionality through Cognito_Auth
-6. WHILE a user session is active, THE Static_Web_Interface SHALL maintain authentication state across page navigation
+3. WHEN a user registers through the self-registration form, THE Static_Web_Interface SHALL automatically confirm the user account in Cognito_Auth without requiring manual approval
+4. WHEN a user submits valid credentials, THE Static_Web_Interface SHALL redirect the user to the appropriate dashboard based on their role (Admin, Manager, or Employee)
+5. WHEN authentication fails, THE Static_Web_Interface SHALL display an error message indicating invalid credentials
+6. THE Static_Web_Interface SHALL provide password reset functionality through Cognito_Auth
+7. WHILE a user session is active, THE Static_Web_Interface SHALL maintain authentication state across page navigation
 
 ### Requirement 2
 
