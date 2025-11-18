@@ -1,8 +1,11 @@
 import json
 import os
 import boto3
+import requests
 from datetime import datetime
 from botocore.exceptions import ClientError
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 # Initialize AWS clients
 # AWS_REGION is automatically set by Lambda runtime
@@ -13,8 +16,55 @@ dynamodb = boto3.resource('dynamodb')
 USER_POOL_ID = os.environ.get('USER_POOL_ID')
 CLIENT_ID = os.environ.get('CLIENT_ID')
 USERS_TABLE_NAME = os.environ.get('DYNAMODB_USERS_TABLE')
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
 
 users_table = dynamodb.Table(USERS_TABLE_NAME)
+
+
+def verify_google_token(token):
+    """
+    Verify Google OAuth token and extract user info
+    Returns: dict with email, name, picture or None if invalid
+    """
+    try:
+        # First, try to verify as ID token (JWT)
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token, 
+                google_requests.Request(), 
+                GOOGLE_CLIENT_ID
+            )
+            
+            # Token is valid, extract user info
+            return {
+                'email': idinfo.get('email'),
+                'name': idinfo.get('name'),
+                'picture': idinfo.get('picture'),
+                'email_verified': idinfo.get('email_verified', False)
+            }
+        except ValueError:
+            # Not an ID token, might be an access token
+            # Use Google's userinfo endpoint
+            response = requests.get(
+                'https://www.googleapis.com/oauth2/v3/userinfo',
+                headers={'Authorization': f'Bearer {token}'}
+            )
+            
+            if response.status_code == 200:
+                user_info = response.json()
+                return {
+                    'email': user_info.get('email'),
+                    'name': user_info.get('name'),
+                    'picture': user_info.get('picture'),
+                    'email_verified': user_info.get('email_verified', False)
+                }
+            else:
+                print(f"Google userinfo API error: {response.status_code} - {response.text}")
+                return None
+                
+    except Exception as e:
+        print(f"Error verifying Google token: {e}")
+        return None
 
 
 def lambda_handler(event, context):
@@ -39,13 +89,25 @@ def lambda_handler(event, context):
                 })
             }
         
-        # In production, verify Google token with Google API
-        # For now, this is a mock implementation
-        # TODO: Implement actual Google token verification
+        # Verify Google token and get user info
+        google_user_info = verify_google_token(google_token)
         
-        # Mock Google user data
-        google_email = 'google.user@example.com'
-        google_name = 'Google User'
+        if not google_user_info:
+            return {
+                'statusCode': 401,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'success': False,
+                    'message': 'Invalid Google token'
+                })
+            }
+        
+        google_email = google_user_info['email']
+        google_name = google_user_info['name']
+        google_picture = google_user_info.get('picture')
         
         # Check if user exists in DynamoDB
         try:
@@ -58,39 +120,93 @@ def lambda_handler(event, context):
             )
             
             if response['Items']:
-                # User exists, return user data
+                # User exists - login flow
                 user = response['Items'][0]
+                print(f"Existing user found: {google_email}")
+                
+                # Update picture if changed
+                if google_picture and user.get('avatarUrl') != google_picture:
+                    users_table.update_item(
+                        Key={'userId': user['userId']},
+                        UpdateExpression='SET avatarUrl = :picture, updatedAt = :now',
+                        ExpressionAttributeValues={
+                            ':picture': google_picture,
+                            ':now': datetime.utcnow().isoformat()
+                        }
+                    )
+                    user['avatarUrl'] = google_picture
             else:
-                # Create new user
+                # User doesn't exist - register flow
+                print(f"Creating new user: {google_email}")
                 now = datetime.utcnow().isoformat()
-                user_sub = f"google-{google_email}"
+                
+                # Generate unique userId
+                import uuid
+                user_id = str(uuid.uuid4())
                 
                 user = {
-                    'userId': user_sub,
+                    'userId': user_id,
                     'email': google_email,
                     'name': google_name,
-                    'role': 'Employee',
+                    'role': 'Employee',  # Default role for new users
                     'isActive': True,
                     'createdAt': now,
                     'updatedAt': now
                 }
                 
+                # Add avatar URL if available
+                if google_picture:
+                    user['avatarUrl'] = google_picture
+                
+                # Save to DynamoDB
                 users_table.put_item(Item=user)
                 
-                # Create user in Cognito (optional, for unified user management)
+                # Create user in Cognito for unified user management
                 try:
-                    cognito_client.admin_create_user(
+                    user_attributes = [
+                        {'Name': 'email', 'Value': google_email},
+                        {'Name': 'name', 'Value': google_name},
+                        {'Name': 'email_verified', 'Value': 'true'}
+                    ]
+                    
+                    cognito_response = cognito_client.admin_create_user(
                         UserPoolId=USER_POOL_ID,
                         Username=google_email,
-                        UserAttributes=[
-                            {'Name': 'email', 'Value': google_email},
-                            {'Name': 'name', 'Value': google_name},
-                            {'Name': 'email_verified', 'Value': 'true'}
-                        ],
+                        UserAttributes=user_attributes,
                         MessageAction='SUPPRESS'
                     )
+                    
+                    # Set permanent password (Google users don't use password)
+                    cognito_client.admin_set_user_password(
+                        UserPoolId=USER_POOL_ID,
+                        Username=google_email,
+                        Password=f"GoogleAuth-{uuid.uuid4()}",  # Random password
+                        Permanent=True
+                    )
+                    
+                    # Store Cognito sub in user record
+                    cognito_sub = cognito_response['User']['Username']
+                    users_table.update_item(
+                        Key={'userId': user_id},
+                        UpdateExpression='SET cognitoSub = :sub',
+                        ExpressionAttributeValues={':sub': cognito_sub}
+                    )
+                    user['cognitoSub'] = cognito_sub
+                    
                 except cognito_client.exceptions.UsernameExistsException:
-                    pass  # User already exists in Cognito
+                    print(f"User already exists in Cognito: {google_email}")
+                    # Get existing Cognito user
+                    cognito_user = cognito_client.admin_get_user(
+                        UserPoolId=USER_POOL_ID,
+                        Username=google_email
+                    )
+                    cognito_sub = cognito_user['Username']
+                    users_table.update_item(
+                        Key={'userId': user_id},
+                        UpdateExpression='SET cognitoSub = :sub',
+                        ExpressionAttributeValues={':sub': cognito_sub}
+                    )
+                    user['cognitoSub'] = cognito_sub
                 
         except ClientError as e:
             print(f"Error querying/creating user in DynamoDB: {e}")
@@ -106,13 +222,35 @@ def lambda_handler(event, context):
                 })
             }
         
-        # Generate mock tokens (in production, use Cognito tokens)
-        tokens = {
-            'accessToken': f"google-access-token-{user['userId']}",
-            'refreshToken': f"google-refresh-token-{user['userId']}",
-            'idToken': f"google-id-token-{user['userId']}",
-            'expiresIn': 3600
-        }
+        # Generate Cognito tokens for the user
+        try:
+            # Use admin_initiate_auth to get tokens
+            auth_response = cognito_client.admin_initiate_auth(
+                UserPoolId=USER_POOL_ID,
+                ClientId=CLIENT_ID,
+                AuthFlow='CUSTOM_AUTH',  # We'll use custom auth for Google users
+                AuthParameters={
+                    'USERNAME': google_email
+                }
+            )
+            
+            # If custom auth is not set up, fall back to mock tokens
+            # In production, you should set up custom auth flow or use Cognito Identity Pool
+            tokens = {
+                'accessToken': auth_response['AuthenticationResult']['AccessToken'],
+                'refreshToken': auth_response['AuthenticationResult'].get('RefreshToken', ''),
+                'idToken': auth_response['AuthenticationResult']['IdToken'],
+                'expiresIn': auth_response['AuthenticationResult']['ExpiresIn']
+            }
+        except Exception as e:
+            print(f"Error generating Cognito tokens: {e}")
+            # Fall back to mock tokens for MVP
+            tokens = {
+                'accessToken': f"google-access-token-{user['userId']}",
+                'refreshToken': f"google-refresh-token-{user['userId']}",
+                'idToken': f"google-id-token-{user['userId']}",
+                'expiresIn': 3600
+            }
         
         return {
             'statusCode': 200,

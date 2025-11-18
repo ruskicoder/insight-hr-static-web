@@ -243,10 +243,56 @@ curl -X POST https://lqk4t6qzag.execute-api.ap-southeast-1.amazonaws.com/dev/aut
 - `setup-api-gateway.ps1` - Script to configure API Gateway endpoints
 - `README.md` - This documentation file
 
+## Google OAuth Setup
+
+The `insighthr-auth-google-handler` Lambda function now supports real Google OAuth authentication with token verification.
+
+### Setup Steps
+
+1. **Create Google Cloud Project and OAuth Credentials**
+   - See `GOOGLE_OAUTH_SETUP.md` for detailed instructions
+   - Get your Google Client ID from Google Cloud Console
+
+2. **Deploy Lambda with Dependencies**
+   ```powershell
+   # Edit deploy-google-oauth.ps1 and set your Google Client ID
+   .\deploy-google-oauth.ps1
+   ```
+
+3. **Configure Frontend**
+   - Add `VITE_GOOGLE_CLIENT_ID` to `insighthr-web/.env`
+   - Configure authorized origins in Google Cloud Console
+
+4. **Test**
+   ```powershell
+   .\test-google-oauth.ps1
+   ```
+
+### How It Works
+
+1. User clicks "Continue with Google" in frontend
+2. Google OAuth popup opens, user grants permissions
+3. Frontend receives Google access token or ID token
+4. Frontend sends token to `/auth/google` endpoint
+5. Lambda verifies token with Google's API
+6. Lambda extracts user info (email, name, picture)
+7. Lambda checks if user exists in DynamoDB:
+   - **Existing user**: Login flow (return user data)
+   - **New user**: Register flow (create in DynamoDB and Cognito)
+8. Lambda returns user data and authentication tokens
+
+### Dependencies
+
+The Google OAuth Lambda requires additional Python packages:
+- `google-auth==2.25.2` - Google authentication library
+- `requests==2.31.0` - HTTP library for API calls
+
+These are automatically installed when using `deploy-google-oauth.ps1`.
+
 ## Notes
 
 - AWS_REGION is automatically set by Lambda runtime (no need to configure)
 - All Lambda functions use AWS_PROXY integration with API Gateway
 - CORS is enabled for all endpoints
 - User auto-confirmation is enabled for development (should be disabled in production)
-- Google OAuth implementation is currently a mock and needs real Google token verification
+- Google OAuth now uses real token verification (not mock)

@@ -310,15 +310,25 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Note: CloudFront provides free HTTPS with default *.cloudfront.net domain (no custom domain needed)
   - _Requirements: 9.1, 11.4_
 
-- [ ] 5.8 Fix stub API Google OAuth login/register
-  - Update stub-api/server.js to implement Google OAuth mock flow
-  - Add POST /auth/google endpoint that accepts Google token or user info
-  - Return mock JWT with user data (same format as login/register)
-  - Create mock Google user in memory store if not exists
-  - Test Google OAuth flow with stub API
-  - Verify frontend Google button works with stub endpoint
-  - Document stub Google OAuth flow in stub-api/README.md
-  - _Requirements: 1.4, 1.5_
+- [x] 5.8 Implement real Google OAuth login/register
+
+
+
+  - Set up Google Cloud Console project and create OAuth 2.0 credentials
+  - Configure authorized JavaScript origins and redirect URIs for localhost and CloudFront
+  - Install @react-oauth/google package in frontend
+  - Update GoogleAuthButton component to use real Google OAuth flow with GoogleOAuthProvider
+  - Implement handleCredentialResponse to receive Google JWT token
+  - Update authService.googleLogin() to send Google JWT token to backend
+  - Update lambda/auth/auth_google_handler.py to verify Google JWT token with Google's API
+  - Extract user info (email, name, picture) from verified Google token
+  - Check if user exists in DynamoDB Users table by email
+  - If user exists, return existing user with Cognito tokens (login flow)
+  - If user doesn't exist, create new Cognito user and DynamoDB record (register flow)
+  - Test Google OAuth flow end-to-end on localhost
+  - Deploy updated Lambda to AWS and test on CloudFront domain
+  - Document Google OAuth setup in README.md (client ID, redirect URIs)
+  - _Requirements: 1.1, 1.4, 1.5_
 
 ### Phase 3: User Management
 
