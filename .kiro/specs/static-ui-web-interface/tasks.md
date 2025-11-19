@@ -174,8 +174,6 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Fully style with Apple theme
   - Create test page at `/test/login` for isolated testing
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
-
-
 - [x] 5.1 Stub API - Authentication endpoints (local Express server)
 
 
@@ -339,7 +337,11 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 6: User Management (Profile & Admin User CRUD)
 
-- [ ] 6. Frontend - User types and service layer
+- [x] 6. Frontend - User types and service layer
+
+
+
+
 
   - Create user.types.ts with interfaces:
     - User (userId, email, name, role, department, employeeId, status, createdAt, updatedAt)
@@ -359,7 +361,14 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
 
-- [ ] 6.1 Frontend - Profile page UI
+- [x] 6.1 Frontend - Profile page UI (/profile)
+
+
+
+
+
+
+
   - Create ProfileView component (read-only display):
     - Display user information (name, email, role, department, employeeId)
     - Show avatar placeholder
@@ -367,13 +376,15 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create ProfileEdit component:
     - Allow editing name and department only (email and role not editable)
     - Form validation with React Hook Form
-    - Submit and Cancel buttons
+    - Submit and Cancel buttons 
   - Style with Apple theme
   - Create test page at `/test/profile` for isolated testing
   - _Requirements: 2.1, 2.2_
 
 
-- [ ] 6.2 Frontend - User management UI components (Admin only)
+- [x] 6.2 Frontend - User management UI components (Admin only) (/admin/users)
+
+
   - Create UserManagement container component with tabs
   - Create UserList component:
     - Table with columns: name, email, role, department, employeeId, status, actions
@@ -397,11 +408,17 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - Bulk import progress indicator
   - Add confirmation dialogs for destructive actions
   - Style all components with Apple theme
+  - Create main page at `/admin/users`
   - Create test page at `/test/users` for isolated testing
 
   - _Requirements: 2.3, 2.4, 2.5_
 
-- [ ] 6.3 Stub API - User management endpoints
+- [x] 6.3 Stub API - User management endpoints
+
+
+
+
+
   - Add to Express.js stub server (`localhost:4000`)
   - Create in-memory user store with demo users (admin, manager, employees)
   - Implement GET /users/me endpoint (return current user profile)
@@ -419,7 +436,13 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document stub API in `/stub-api/README.md`
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 6.4 Frontend - Integrate with stub API and test
+- [x] 6.4 Frontend - Integrate with stub API and test
+
+
+
+
+
+
   - Connect ProfileView to userService:
     - Fetch data from stub /users/me endpoint on mount
     - Implement loading and error states
@@ -447,7 +470,12 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify Admin-only access control works
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 6.5 AWS Infrastructure - User management Lambda
+- [x] 6.5 AWS Infrastructure - User management Lambda
+
+
+
+
+
   - Check if user Lambda functions exist in ap-southeast-1
   - Create Lambda function: users-handler (Python 3.11)
     - GET /users/me → Fetch current user from DynamoDB by userId (from JWT)
@@ -467,7 +495,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Package Lambdas with dependencies (boto3)
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 6.6 AWS Deployment - User management Lambda
+- [x] 6.6 AWS Deployment - User management Lambda
   - Deploy users-handler to ap-southeast-1
   - Deploy users-bulk-handler to ap-southeast-1
   - Create API Gateway endpoints:
@@ -490,12 +518,28 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - Test PUT /users/:userId with role/department update
     - Test disable/enable user endpoints
     - Test DELETE /users/:userId
-
     - Test POST /users/bulk with CSV data
   - Update aws-secret.md with Lambda ARNs and API Gateway endpoints
+  - **KNOWN ISSUE NOT FIXED**: Frontend was sending accessToken instead of idToken
+    - Cognito authorizer requires idToken (contains user identity)
+    - accessToken is rejected with 401 Unauthorized
+    - Solution: Frontend must use idToken for Authorization header
+    - See lambda/users/FIX-401-ISSUE.md for details
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 6.7 Frontend - Switch to AWS endpoints and test
+- [x] 6.7 Frontend - Switch to AWS endpoints and test
+
+
+
+
+
+
+
+
+
+
+
+
   - Update userService to use real AWS API Gateway URLs (from .env)
   - Update .env with production API Gateway URL for user endpoints
   - Test profile page with real DynamoDB data on localhost:
@@ -520,8 +564,12 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify error handling with invalid data and network errors
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 6.8 Build and deploy user management phase to S3
+- [-] 6.8 Build and deploy user management phase to S3
 
+
+
+  - commit all unstaged/staged changes including submodules to github
+  - polish user management "edit user" page
   - Run `npm run build` to create production bundle
   - Test production build locally with `npm run preview`
   - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`

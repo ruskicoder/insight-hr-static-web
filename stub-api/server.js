@@ -8,6 +8,7 @@ const PORT = 4000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+app.use(bodyParser.text({ type: 'text/csv' }));
 
 // In-memory user store
 const users = [
@@ -19,6 +20,7 @@ const users = [
     role: 'Admin',
     employeeId: 'EMP001',
     department: 'IT',
+    status: 'active',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -30,6 +32,7 @@ const users = [
     role: 'Manager',
     employeeId: 'EMP002',
     department: 'Sales',
+    status: 'active',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -41,6 +44,43 @@ const users = [
     role: 'Employee',
     employeeId: 'EMP003',
     department: 'Engineering',
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    userId: 'employee-2',
+    email: 'john.doe@insighthr.com',
+    password: 'Employee1234',
+    name: 'John Doe',
+    role: 'Employee',
+    employeeId: 'EMP004',
+    department: 'Engineering',
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    userId: 'employee-3',
+    email: 'jane.smith@insighthr.com',
+    password: 'Employee1234',
+    name: 'Jane Smith',
+    role: 'Employee',
+    employeeId: 'EMP005',
+    department: 'Sales',
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    userId: 'employee-4',
+    email: 'bob.wilson@insighthr.com',
+    password: 'Employee1234',
+    name: 'Bob Wilson',
+    role: 'Employee',
+    employeeId: 'EMP006',
+    department: 'IT',
+    status: 'disabled',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -60,6 +100,61 @@ const findUserByEmail = (email) => {
 const createUserResponse = (user) => {
   const { password, ...userWithoutPassword } = user;
   return userWithoutPassword;
+};
+
+// Helper function to extract user from token
+const getUserFromToken = (authHeader) => {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  
+  // Mock: Extract userId from token (format: mock-jwt-token-{userId}-{timestamp})
+  const token = authHeader.replace('Bearer ', '');
+  const parts = token.split('-');
+  
+  if (parts.length >= 4) {
+    // Reconstruct userId (could be "admin-1", "employee-1", etc.)
+    const userIdParts = [];
+    for (let i = 3; i < parts.length - 1; i++) {
+      userIdParts.push(parts[i]);
+    }
+    const userId = userIdParts.join('-');
+    return users.find(u => u.userId === userId);
+  }
+  
+  return null;
+};
+
+// Helper function to check if user is admin
+const isAdmin = (user) => {
+  return user && user.role === 'Admin';
+};
+
+// Helper function to find user by ID
+const findUserById = (userId) => {
+  return users.find(u => u.userId === userId);
+};
+
+// Helper function to parse CSV data
+const parseCSV = (csvData) => {
+  const lines = csvData.trim().split('\n');
+  if (lines.length < 2) {
+    throw new Error('CSV must have header and at least one data row');
+  }
+  
+  const headers = lines[0].split(',').map(h => h.trim());
+  const rows = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim());
+    const row = {};
+    headers.forEach((header, index) => {
+      row[header] = values[index] || '';
+    });
+    rows.push(row);
+  }
+  
+  return rows;
 };
 
 // ============================================
@@ -129,6 +224,7 @@ app.post('/auth/register', (req, res) => {
     password,
     name,
     role: 'Employee',
+    status: 'active',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -297,6 +393,444 @@ app.get('/users/me', (req, res) => {
     success: true,
     data: createUserResponse(user),
   });
+});
+
+// PUT /users/me
+app.put('/users/me', (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized',
+    });
+  }
+
+  const { name, department } = req.body;
+
+  // Get current user from token
+  const currentUser = getUserFromToken(authHeader);
+  
+  if (!currentUser) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid token',
+    });
+  }
+
+  if (name !== undefined) {
+    currentUser.name = name;
+  }
+
+  if (department !== undefined) {
+    currentUser.department = department;
+  }
+
+  currentUser.updatedAt = new Date().toISOString();
+
+  res.json({
+    success: true,
+    message: 'Profile updated successfully',
+    data: createUserResponse(currentUser),
+  });
+});
+
+// GET /users (Admin only)
+app.get('/users', (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized',
+    });
+  }
+
+  const currentUser = getUserFromToken(authHeader);
+  
+  if (!isAdmin(currentUser)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Admin access required',
+    });
+  }
+
+  // Apply filters
+  const { search, department, role, status } = req.query;
+  let filteredUsers = [...users];
+
+  if (search) {
+    const searchLower = search.toLowerCase();
+    filteredUsers = filteredUsers.filter(u => 
+      u.name.toLowerCase().includes(searchLower) || 
+      u.email.toLowerCase().includes(searchLower)
+    );
+  }
+
+  if (department) {
+    filteredUsers = filteredUsers.filter(u => u.department === department);
+  }
+
+  if (role) {
+    filteredUsers = filteredUsers.filter(u => u.role === role);
+  }
+
+  if (status) {
+    filteredUsers = filteredUsers.filter(u => u.status === status);
+  }
+
+  res.json({
+    success: true,
+    data: filteredUsers.map(createUserResponse),
+  });
+});
+
+// POST /users (Admin only)
+app.post('/users', (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized',
+    });
+  }
+
+  const currentUser = getUserFromToken(authHeader);
+  
+  if (!isAdmin(currentUser)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Admin access required',
+    });
+  }
+
+  const { email, name, role, department, employeeId } = req.body;
+
+  if (!email || !name || !role) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email, name, and role are required',
+    });
+  }
+
+  // Check if user already exists
+  if (findUserByEmail(email)) {
+    return res.status(409).json({
+      success: false,
+      message: 'User with this email already exists',
+    });
+  }
+
+  // Create new user
+  const newUser = {
+    userId: `user-${Date.now()}`,
+    email,
+    password: 'DefaultPassword123', // Default password
+    name,
+    role,
+    employeeId: employeeId || `EMP${Date.now()}`,
+    department: department || '',
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  users.push(newUser);
+
+  res.status(201).json({
+    success: true,
+    message: 'User created successfully',
+    data: createUserResponse(newUser),
+  });
+});
+
+// PUT /users/:userId (Admin only)
+app.put('/users/:userId', (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized',
+    });
+  }
+
+  const currentUser = getUserFromToken(authHeader);
+  
+  if (!isAdmin(currentUser)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Admin access required',
+    });
+  }
+
+  const { userId } = req.params;
+  const { name, role, department, employeeId } = req.body;
+
+  const user = findUserById(userId);
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found',
+    });
+  }
+
+  // Update user fields
+  if (name !== undefined) {
+    user.name = name;
+  }
+
+  if (role !== undefined) {
+    user.role = role;
+  }
+
+  if (department !== undefined) {
+    user.department = department;
+  }
+
+  if (employeeId !== undefined) {
+    user.employeeId = employeeId;
+  }
+
+  user.updatedAt = new Date().toISOString();
+
+  res.json({
+    success: true,
+    message: 'User updated successfully',
+    data: createUserResponse(user),
+  });
+});
+
+// PUT /users/:userId/disable (Admin only)
+app.put('/users/:userId/disable', (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized',
+    });
+  }
+
+  const currentUser = getUserFromToken(authHeader);
+  
+  if (!isAdmin(currentUser)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Admin access required',
+    });
+  }
+
+  const { userId } = req.params;
+  const user = findUserById(userId);
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found',
+    });
+  }
+
+  user.status = 'disabled';
+  user.updatedAt = new Date().toISOString();
+
+  res.json({
+    success: true,
+    message: 'User disabled successfully',
+    data: createUserResponse(user),
+  });
+});
+
+// PUT /users/:userId/enable (Admin only)
+app.put('/users/:userId/enable', (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized',
+    });
+  }
+
+  const currentUser = getUserFromToken(authHeader);
+  
+  if (!isAdmin(currentUser)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Admin access required',
+    });
+  }
+
+  const { userId } = req.params;
+  const user = findUserById(userId);
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found',
+    });
+  }
+
+  user.status = 'active';
+  user.updatedAt = new Date().toISOString();
+
+  res.json({
+    success: true,
+    message: 'User enabled successfully',
+    data: createUserResponse(user),
+  });
+});
+
+// DELETE /users/:userId (Admin only)
+app.delete('/users/:userId', (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized',
+    });
+  }
+
+  const currentUser = getUserFromToken(authHeader);
+  
+  if (!isAdmin(currentUser)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Admin access required',
+    });
+  }
+
+  const { userId } = req.params;
+  const userIndex = users.findIndex(u => u.userId === userId);
+
+  if (userIndex === -1) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found',
+    });
+  }
+
+  // Prevent deleting yourself
+  if (userId === currentUser.userId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cannot delete your own account',
+    });
+  }
+
+  users.splice(userIndex, 1);
+
+  res.json({
+    success: true,
+    message: 'User deleted successfully',
+    data: { userId },
+  });
+});
+
+// POST /users/bulk (Admin only)
+app.post('/users/bulk', (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized',
+    });
+  }
+
+  const currentUser = getUserFromToken(authHeader);
+  
+  if (!isAdmin(currentUser)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Forbidden: Admin access required',
+    });
+  }
+
+  // Get CSV data from body (either as text/csv or JSON)
+  const csvData = typeof req.body === 'string' ? req.body : req.body.csvData;
+
+  if (!csvData) {
+    return res.status(400).json({
+      success: false,
+      message: 'CSV data is required',
+    });
+  }
+
+  try {
+    const rows = parseCSV(csvData);
+    const results = {
+      success: [],
+      failed: [],
+    };
+
+    rows.forEach((row, index) => {
+      const { email, name, role, department, employeeId } = row;
+
+      // Validate required fields
+      if (!email || !name || !role) {
+        results.failed.push({
+          row: index + 2, // +2 because index 0 is row 2 (after header)
+          email: email || 'N/A',
+          reason: 'Missing required fields (email, name, role)',
+        });
+        return;
+      }
+
+      // Check if user already exists
+      if (findUserByEmail(email)) {
+        results.failed.push({
+          row: index + 2,
+          email,
+          reason: 'User with this email already exists',
+        });
+        return;
+      }
+
+      // Create new user
+      const newUser = {
+        userId: `user-${Date.now()}-${index}`,
+        email,
+        password: 'DefaultPassword123',
+        name,
+        role,
+        employeeId: employeeId || `EMP${Date.now()}${index}`,
+        department: department || '',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      users.push(newUser);
+      results.success.push({
+        row: index + 2,
+        email,
+        userId: newUser.userId,
+      });
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Bulk import completed: ${results.success.length} succeeded, ${results.failed.length} failed`,
+      data: {
+        success: results.success.length,
+        failed: results.failed.length,
+        errors: results.failed.map(f => ({
+          row: f.row,
+          email: f.email,
+          error: f.reason,
+        })),
+      },
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: `CSV parsing error: ${error.message}`,
+    });
+  }
 });
 
 // Health check

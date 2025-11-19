@@ -1,0 +1,20 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:AdminConfirmSignUp",
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:AdminGetUser",
+        "cognito-idp:AdminSetUserPassword",
+        "cognito-idp:AdminUpdateUserAttributes",
+        "cognito-idp:AdminDisableUser",
+        "cognito-idp:AdminEnableUser",
+        "cognito-idp:AdminDeleteUser",
+        "cognito-idp:AdminInitiateAuth"
+      ],
+      "Resource": "arn:aws:cognito-idp:ap-southeast-1:151507815244:userpool/ap-southeast-1_rzDtdAhvp"
+    }
+  ]
+}
