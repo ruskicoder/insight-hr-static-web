@@ -564,7 +564,9 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify error handling with invalid data and network errors
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [-] 6.8 Build and deploy user management phase to S3
+- [x] 6.8 Build and deploy user management phase to S3
+
+
 
 
 
