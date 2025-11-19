@@ -168,7 +168,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Update LoginPage with form switching
   - Implement form validation for email and password
   - Add loading states and error handling
-  - Fully style with Frutiger Aero theme
+  - Fully style with Apple theme
   - Create test page at `/test/login` for isolated testing
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
@@ -330,66 +330,212 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document Google OAuth setup in README.md (client ID, redirect URIs)
   - _Requirements: 1.1, 1.4, 1.5_
 
-### Phase 3: User Management
+### Phase 6: User Management (Profile & Admin User CRUD)
 
-- [ ] 6. Frontend - Profile page UI (static framework)
-  - Create ProfileView component (read-only display)
-  - Display user information (name, email, role, department, employeeId)
-  - Style with Frutiger Aero theme
+- [ ] 6. Frontend - User types and service layer
+
+  - Create user.types.ts with interfaces:
+    - User (userId, email, name, role, department, employeeId, status, createdAt, updatedAt)
+    - CreateUserRequest (email, name, role, department, employeeId)
+    - UpdateUserRequest (name, role, department, employeeId)
+    - UserFilters (search, department, role, status)
+  - Create userService.ts with API methods:
+    - getMe() → GET /users/me (fetch current user profile)
+    - updateMe(data) → PUT /users/me (update current user profile)
+    - getAll(filters) → GET /users (fetch all users with filters, Admin only)
+    - create(userData) → POST /users (create new user, Admin only)
+    - update(userId, userData) → PUT /users/:userId (update user, Admin only)
+    - disable(userId) → PUT /users/:userId/disable (disable user, Admin only)
+    - enable(userId) → PUT /users/:userId/enable (enable user, Admin only)
+    - delete(userId) → DELETE /users/:userId (delete user, Admin only)
+    - bulkImport(csvData) → POST /users/bulk (bulk create users from CSV, Admin only)
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+
+
+- [ ] 6.1 Frontend - Profile page UI
+  - Create ProfileView component (read-only display):
+    - Display user information (name, email, role, department, employeeId)
+    - Show avatar placeholder
+    - Add "Edit Profile" button (opens edit form)
+  - Create ProfileEdit component:
+    - Allow editing name and department only (email and role not editable)
+    - Form validation with React Hook Form
+    - Submit and Cancel buttons
+  - Style with Apple theme
   - Create test page at `/test/profile` for isolated testing
-  - _Requirements: 2.1_
+  - _Requirements: 2.1, 2.2_
 
-- [ ] 6.1 Stub API - User management endpoints
-  - Add to Express.js stub server
-  - Create in-memory user profiles
+
+- [ ] 6.2 Frontend - User management UI components (Admin only)
+  - Create UserManagement container component with tabs
+  - Create UserList component:
+    - Table with columns: name, email, role, department, employeeId, status, actions
+    - Sortable columns (click header to sort)
+    - Action buttons: Edit, Disable/Enable, Delete (with confirmation)
+    - Pagination controls (10, 25, 50 per page)
+  - Create UserForm component for create/edit:
+    - Fields: email, name, role (dropdown: Admin/Manager/Employee), department (dropdown), employeeId
+    - Validation: required fields, email format, unique email check
+    - Submit and Cancel buttons
+  - Create UserFilters component:
+    - Search input (filter by name or email)
+    - Department dropdown filter
+    - Role dropdown filter
+    - Status filter (All, Active, Disabled)
+    - Clear filters button
+  - Create UserBulkImport component:
+    - CSV file upload with drag-and-drop
+    - CSV template download button
+    - Preview imported users before confirmation
+    - Bulk import progress indicator
+  - Add confirmation dialogs for destructive actions
+  - Style all components with Apple theme
+  - Create test page at `/test/users` for isolated testing
+
+  - _Requirements: 2.3, 2.4, 2.5_
+
+- [ ] 6.3 Stub API - User management endpoints
+  - Add to Express.js stub server (`localhost:4000`)
+  - Create in-memory user store with demo users (admin, manager, employees)
   - Implement GET /users/me endpoint (return current user profile)
   - Implement PUT /users/me endpoint (update user profile in memory)
-  - Implement GET /users endpoint (return all users, Admin only)
+  - Implement GET /users endpoint (return all users with filters, Admin only)
   - Implement POST /users endpoint (create user, Admin only)
   - Implement PUT /users/:userId endpoint (update user, Admin only)
+  - Implement PUT /users/:userId/disable endpoint (disable user, Admin only)
+  - Implement PUT /users/:userId/enable endpoint (enable user, Admin only)
+  - Implement DELETE /users/:userId endpoint (delete user, Admin only)
+  - Implement POST /users/bulk endpoint (bulk create users from CSV, Admin only)
+  - Return consistent response format matching AWS Lambda structure
   - Test all endpoints with Postman/curl
-  - _Requirements: 2.1, 2.2, 2.4, 2.5_
 
-- [ ] 6.2 Frontend - Integrate profile with stub API
-  - Create userService for API calls
-  - Fetch data from stub /users/me endpoint
-  - Test profile display at `/test/profile`
-  - Verify data updates work with stub API
-  - _Requirements: 2.1_
+  - Document stub API in `/stub-api/README.md`
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 6.3 AWS Infrastructure - User management Lambda
-  - Check if user Lambda functions exist
-  - Create Lambda function: users-handler
-    - GET /users/me → Fetch current user from DynamoDB
-    - PUT /users/me → Update user profile
-    - GET /users → List all users (Admin only)
-    - POST /users → Create user (Admin only)
-    - PUT /users/:userId → Update user (Admin only)
-  - Package Lambda with dependencies
-  - _Requirements: 2.1, 2.2, 2.4, 2.5_
+- [ ] 6.4 Frontend - Integrate with stub API and test
+  - Connect ProfileView to userService:
+    - Fetch data from stub /users/me endpoint on mount
+    - Implement loading and error states
+  - Connect ProfileEdit to userService:
+    - Call updateMe() on form submit
+    - Show success/error toast notification
+  - Connect UserManagement components to stub API:
+    - UserList: fetch users on mount, apply filters, handle pagination
+    - UserForm: call create/update on submit
+    - UserFilters: trigger getAll() with filter params on change
+    - UserBulkImport: call bulkImport() with CSV data
+  - Test profile page at `/test/profile`:
+    - Verify user data loads correctly
+    - Test edit form and save changes
+    - Verify error handling
+  - Test user management at `/test/users`:
+    - Test user list display with sorting and pagination
+    - Test create user flow
+    - Test edit user flow
+    - Test disable/enable user
+    - Test delete user with confirmation
+    - Test filtering and search
 
-- [ ] 6.4 AWS Deployment - User management Lambda
+    - Test bulk import with CSV file
+  - Verify Admin-only access control works
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+
+- [ ] 6.5 AWS Infrastructure - User management Lambda
+  - Check if user Lambda functions exist in ap-southeast-1
+  - Create Lambda function: users-handler (Python 3.11)
+    - GET /users/me → Fetch current user from DynamoDB by userId (from JWT)
+    - PUT /users/me → Update current user profile in DynamoDB
+    - GET /users → List all users with filters (Admin only)
+    - POST /users → Create user in Cognito and DynamoDB (Admin only)
+    - PUT /users/:userId → Update user in Cognito and DynamoDB (Admin only)
+    - PUT /users/:userId/disable → Disable user in Cognito and DynamoDB (Admin only)
+    - PUT /users/:userId/enable → Enable user in Cognito and DynamoDB (Admin only)
+    - DELETE /users/:userId → Delete user from Cognito and DynamoDB (Admin only)
+  - Create Lambda function: users-bulk-handler (Python 3.11)
+    - POST /users/bulk → Parse CSV, create multiple users in Cognito and DynamoDB
+    - Return success/failure for each user
+
+  - Implement role-based authorization (extract role from JWT)
+  - Implement error handling for Cognito and DynamoDB operations
+  - Package Lambdas with dependencies (boto3)
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+
+- [ ] 6.6 AWS Deployment - User management Lambda
   - Deploy users-handler to ap-southeast-1
-  - Create API Gateway endpoints for user operations
-  - Test endpoints with authentication using Postman/curl
-  - Update aws-secret.md with Lambda ARN and endpoints
-  - _Requirements: 2.1, 2.2, 2.4, 2.5_
+  - Deploy users-bulk-handler to ap-southeast-1
+  - Create API Gateway endpoints:
+    - GET /users/me (Cognito authorizer required)
+    - PUT /users/me (Cognito authorizer required)
+    - GET /users (Cognito authorizer required, Admin only)
+    - POST /users (Cognito authorizer required, Admin only)
+    - PUT /users/:userId (Cognito authorizer required, Admin only)
+    - PUT /users/:userId/disable (Cognito authorizer required, Admin only)
+    - PUT /users/:userId/enable (Cognito authorizer required, Admin only)
+    - DELETE /users/:userId (Cognito authorizer required, Admin only)
+    - POST /users/bulk (Cognito authorizer required, Admin only)
+  - Configure CORS for all endpoints
+  - Test endpoints with Postman/curl:
+    - Test GET /users/me with valid JWT
+    - Test PUT /users/me with profile update
+    - Test GET /users with Admin token (should return all users)
+    - Test GET /users with Employee token (should return 403)
+    - Test POST /users with valid user data
+    - Test PUT /users/:userId with role/department update
+    - Test disable/enable user endpoints
+    - Test DELETE /users/:userId
 
-- [ ] 6.5 Frontend - Switch to AWS endpoints and test
-  - Update userService to use real AWS API Gateway URLs
-  - Test profile page with real DynamoDB data on localhost
-  - Verify role-based access control works
-  - Test end-to-end user management flow on localhost
-  - _Requirements: 2.1, 2.2, 2.4, 2.5_
+    - Test POST /users/bulk with CSV data
+  - Update aws-secret.md with Lambda ARNs and API Gateway endpoints
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 6.6 Build and deploy user management phase to S3
+- [ ] 6.7 Frontend - Switch to AWS endpoints and test
+  - Update userService to use real AWS API Gateway URLs (from .env)
+  - Update .env with production API Gateway URL for user endpoints
+  - Test profile page with real DynamoDB data on localhost:
+    - Login as test user
+    - Navigate to /test/profile
+    - Verify profile data loads from DynamoDB
+    - Test profile edit and verify changes persist
+  - Test user management with real data on localhost:
+    - Login as Admin user
+    - Navigate to /test/users
+    - Verify user list loads from DynamoDB
+    - Test create user (should create in Cognito and DynamoDB)
+    - Test edit user (should update in both systems)
+    - Test disable/enable user (should update Cognito status)
+    - Test delete user (should remove from both systems)
+    - Test bulk import with CSV file
+  - Verify role-based access control:
+    - Test with Employee user (should see "Access Denied" for /test/users)
+
+    - Test with Admin user (should see full user management UI)
+  - Test filtering and search with real data
+  - Verify error handling with invalid data and network errors
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+
+- [x] 6.8 Build and deploy user management phase to S3
+
   - Run `npm run build` to create production bundle
   - Test production build locally with `npm run preview`
   - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
-  - Invalidate CloudFront cache if exists
-  - Test live deployed website user profile and management features
+  - Invalidate CloudFront cache: `aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"`
+  - Test live deployed website profile features:
+    - Login as test user
+    - Access profile page and verify data loads
+    - Test profile edit functionality
+  - Test live deployed website user management features (Admin only):
+    - Login as Admin user
+    - Access user management page
+    - Test create user flow
+    - Test edit user flow
+    - Test disable/enable user
+    - Test delete user
+    - Test bulk import
+    - Test filtering and search
   - Verify all user operations work on live site
-  - _Requirements: 2.1, 2.2, 9.1_
+  - Verify CORS configuration allows CloudFront domain to call API Gateway
+  - Document deployment URL in aws-secret.md
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 9.1_
 
 ### Phase 4: KPI Management
 
@@ -400,7 +546,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create KPIList component with edit and disable actions
   - Implement KPI category organization view
   - Add form validation for KPI creation
-  - Style with Frutiger Aero theme
+  - Style with Apple theme
   - Create test page at `/test/kpi` for isolated testing
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
@@ -469,7 +615,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create FormulaPreview component to display formula
   - Support both simple and complex expressions
   - Support multiple active formulas
-  - Style with Frutiger Aero theme
+  - Style with Apple theme
   - Create test page at `/test/formula` for isolated testing
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
 
@@ -539,7 +685,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Implement file type validation (CSV, Excel)
   - Implement file size validation (10,000+ records)
   - Use LoadingSpinner during upload
-  - Style with Frutiger Aero theme
+  - Style with Apple theme
   - Create test page at `/test/upload` for isolated testing
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
@@ -614,7 +760,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create PieChart component for distribution
   - Create ExportButton component
   - Implement role-based data display (Admin/Manager/Employee)
-  - Style with Frutiger Aero theme
+  - Style with Apple theme
   - Create test page at `/test/dashboard` for isolated testing
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
@@ -673,79 +819,20 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test role-based data visibility on live site
   - _Requirements: 6.1, 6.2, 9.1_
 
-### Phase 8: Admin Features
+### Phase 8: Notification Rules
 
-- [ ] 11. Frontend - User management UI (static framework)
-  - Create User types and interfaces (user.types.ts)
-  - Create UserManagement component with user list
-  - Create manual user creation form (one-by-one)
-  - Create bulk user import UI from CSV file
-  - Add user edit functionality (role, department, employeeId)
-  - Implement user disable/enable actions
-  - Add search and filter for user list
-  - Style with Frutiger Aero theme
-  - Create test page at `/test/users` for isolated testing
-  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
-
-- [ ] 11.1 Stub API - User bulk operations endpoint
-  - Add to Express.js stub server
-  - Implement POST /users/bulk endpoint (create multiple users)
-  - Parse CSV data and create users in memory
-  - Return success/failure for each user
-  - Test endpoint with Postman/curl
-  - _Requirements: 2.4_
-
-- [ ] 11.2 Frontend - Integrate user management with stub API
-  - Update userService with bulk operations
-  - Connect UserManagement to stub API
-  - Test manual user creation at `/test/users`
-  - Test bulk user import
-  - Test user edit and disable operations
-  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
-
-- [ ] 11.3 AWS Infrastructure - User bulk operations Lambda
-  - Create Lambda function: users-bulk-handler
-    - POST /users/bulk → Create multiple users from CSV
-    - Parse CSV file from S3
-    - Create Cognito users in batch
-    - Insert into DynamoDB Users table
-  - Package Lambda with dependencies
-  - _Requirements: 2.4_
-
-- [ ] 11.4 AWS Deployment - User bulk operations Lambda
-  - Deploy users-bulk-handler to ap-southeast-1
-  - Create API Gateway endpoint
-  - Test bulk user creation with Postman/curl
-  - Update aws-secret.md with Lambda ARN and endpoint
-  - _Requirements: 2.4_
-
-- [ ] 11.5 Frontend - Switch to AWS endpoints and test
-  - Update userService to use real AWS API Gateway URLs
-  - Test user management with real Cognito and DynamoDB on localhost
-  - Test bulk user creation end-to-end
-  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
-
-- [ ] 11.6 Build and deploy admin user management to S3
-  - Run `npm run build` to create production bundle
-  - Test production build locally with `npm run preview`
-  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
-  - Invalidate CloudFront cache if exists
-  - Test live deployed website admin user management features
-  - Verify manual and bulk user creation work on live site
-  - _Requirements: 2.4, 9.1_
-
-- [ ] 12. Frontend - Notification rules UI (static framework)
+- [ ] 11. Frontend - Notification rules UI (static framework)
   - Create Notification types and interfaces
   - Create NotificationRuleManager component
   - Create condition builder supporting simple and complex logic
   - Implement recipient selection (roles, departments, specific users)
   - Add enable/disable toggle for rules
   - Create email template configuration
-  - Style with Frutiger Aero theme
+  - Style with Apple theme
   - Create test page at `/test/notifications` for isolated testing
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 12.1 Stub API - Notification endpoints
+- [ ] 11.1 Stub API - Notification endpoints
   - Add to Express.js stub server
   - Create in-memory notification rules store
   - Implement GET /notifications/rules endpoint
@@ -755,7 +842,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test endpoints with Postman/curl
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 12.2 Frontend - Integrate notifications with stub API
+- [ ] 11.2 Frontend - Integrate notifications with stub API
   - Create notificationService for API calls
   - Connect NotificationRuleManager to stub API
   - Test notification rule creation at `/test/notifications`
@@ -763,7 +850,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test recipient selection
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 12.3 AWS Infrastructure - Notification Lambda
+- [ ] 11.3 AWS Infrastructure - Notification Lambda
   - Check if notification Lambda functions exist
   - Set up SNS topic for email notifications in ap-southeast-1
   - Create Lambda function: notifications-handler
@@ -778,7 +865,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Package Lambdas with dependencies
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 12.4 AWS Deployment - Notification Lambda
+- [ ] 11.4 AWS Deployment - Notification Lambda
   - Deploy notifications-handler to ap-southeast-1
   - Deploy notifications-trigger-handler to ap-southeast-1
   - Create API Gateway endpoints
@@ -787,14 +874,14 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Update aws-secret.md with Lambda ARNs and endpoints
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 12.5 Frontend - Switch to AWS endpoints and test
+- [ ] 11.5 Frontend - Switch to AWS endpoints and test
   - Update notificationService to use real AWS API Gateway URLs
   - Test notification rules with real DynamoDB on localhost
   - Test email sending via SNS
   - Verify notification history works
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 12.6 Build and deploy notification features to S3
+- [ ] 11.6 Build and deploy notification features to S3
   - Run `npm run build` to create production bundle
   - Test production build locally with `npm run preview`
   - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
@@ -805,7 +892,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 9: Chatbot Integration
 
-- [ ] 13. Frontend - Chatbot UI (static framework)
+- [ ] 12. Frontend - Chatbot UI (static framework)
   - Create ChatMessage and ChatSession types
   - Create ChatbotPage
   - Create ChatbotWidget component for dedicated tab
@@ -813,11 +900,11 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create MessageInput component
   - Create ChatbotInstructions component with usage guide
   - Implement one-off query mode (no session history)
-  - Style with Frutiger Aero theme
+  - Style with Apple theme
   - Create test page at `/test/chatbot` for isolated testing
   - _Requirements: 7.1, 7.2, 7.4, 7.5_
 
-- [ ] 13.1 Stub API - Chatbot endpoint
+- [ ] 12.1 Stub API - Chatbot endpoint
   - Add to Express.js stub server
   - Implement POST /chatbot/message endpoint
   - Create simple rule-based chatbot logic
@@ -826,14 +913,14 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test endpoint with Postman/curl
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 13.2 Frontend - Integrate chatbot with stub API
+- [ ] 12.2 Frontend - Integrate chatbot with stub API
   - Create chatbotService for API calls
   - Connect ChatbotWidget to stub API
   - Test chatbot interactions at `/test/chatbot`
   - Verify message sending and receiving works
   - _Requirements: 7.1, 7.2, 7.4, 7.5_
 
-- [ ] 13.3 AWS Infrastructure - Chatbot Lambda
+- [ ] 12.3 AWS Infrastructure - Chatbot Lambda
   - Check if Lex bot exists in ap-southeast-1
   - If not exists, create Lex bot with intents for HR queries
   - Set up Bedrock integration for natural language understanding
@@ -844,14 +931,14 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Package Lambda with dependencies
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 13.4 AWS Deployment - Chatbot Lambda
+- [ ] 12.4 AWS Deployment - Chatbot Lambda
   - Deploy chatbot-handler to ap-southeast-1
   - Create API Gateway endpoint
   - Test chatbot queries with Postman/curl
   - Update aws-secret.md with Lambda ARN and endpoint
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 13.5 Frontend - Switch to AWS endpoints and test
+- [ ] 12.5 Frontend - Switch to AWS endpoints and test
   - Update chatbotService to use real AWS API Gateway URLs
   - Test chatbot with real Lex/Bedrock integration on localhost
   - Verify data queries work with real DynamoDB
@@ -909,7 +996,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 - [ ] 18. Responsive design and styling
   - Ensure all components are responsive for desktop (1366x768+)
-  - Apply consistent Frutiger Aero theme across all pages
+  - Apply consistent Apple theme across all pages
   - Implement loading states for all async operations
   - Add visual feedback for user actions
   - Test on different screen sizes
@@ -945,191 +1032,6 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify all features work end-to-end on production
   - Document deployment process in README.md
   - Update aws-secret.md with CloudFront URL and distribution ID
-  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
-
-- [ ] 6. Admin Panel - KPI Management
-  - Create KPI types and interfaces (kpi.types.ts)
-  - Create kpiService for API calls (getAll, create, update, disable)
-  - Create KPI store (Zustand) for state management
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
-
-- [ ] 6.1 KPI UI components
-  - Create KPIManager container component
-  - Create KPIForm component with name, description, dataType, category fields
-  - Create KPIList component with edit and disable actions
-  - Implement KPI category organization view
-  - Add form validation for KPI creation
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
-
-- [ ] 7. Admin Panel - Formula Builder
-  - Create Formula types and interfaces (formula.types.ts)
-  - Create formulaService for API calls
-  - Create formula store (Zustand)
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
-
-- [ ] 7.1 Formula Builder UI
-  - Create FormulaBuilder component with semantic input field
-  - Implement autocomplete for KPI selection (Ctrl+space trigger)
-  - Create weight assignment interface
-  - Implement real-time validation (sum = 100%)
-  - Create FormulaPreview component to display formula
-  - Support both simple and complex expressions
-  - Support multiple active formulas
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
-
-- [ ] 8. Admin Panel - User Management
-  - Create User types and interfaces (user.types.ts)
-  - Create userService for API calls
-  - Create UserManagement component with user list
-  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
-
-- [ ] 8.1 User creation and bulk import
-  - Create manual user creation form (one-by-one)
-  - Implement bulk user import from CSV file
-  - Add user edit functionality (role, department, employeeId)
-  - Implement user disable/enable actions
-  - Add search and filter for user list
-  - _Requirements: 2.4_
-
-- [ ] 9. Admin Panel - Notification Rules
-  - Create Notification types and interfaces
-  - Create notificationService for API calls
-  - Create NotificationRuleManager component
-  - _Requirements: 8.1, 8.2, 8.3, 8.4_
-
-- [ ] 9.1 Notification rule configuration
-  - Create condition builder supporting simple and complex logic
-  - Implement recipient selection (roles, departments, specific users)
-  - Add enable/disable toggle for rules
-  - Create email template configuration
-  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
-
-- [ ] 10. File Upload system
-  - Create FileUpload types and interfaces
-  - Create uploadService with presigned URL and file processing
-  - Create FileUploader component with drag-and-drop
-  - Implement file type validation (CSV, Excel)
-  - Implement file size validation (10,000+ records)
-  - Use LoadingSpinner during upload (no progress bar)
-  - _Requirements: 5.1, 5.2, 5.6_
-
-- [ ] 10.1 Column mapping (simplified)
-  - Create ColumnMapper component
-  - Display file headers with KPI dropdown mapping
-  - Remove pattern detection - always create new table
-  - Implement validation before submission
-  - Upload file to S3 using presigned URL
-  - Send mapping configuration to API Gateway
-  - _Requirements: 5.3, 5.4, 5.5, 5.6_
-
-- [ ] 11. Dashboard - Data display
-  - Create Performance types and interfaces
-  - Create performanceService for API calls
-  - Create performance store (Zustand) with filters
-  - Create PerformanceDashboard container component
-  - _Requirements: 6.1, 6.2, 6.3, 6.4_
-
-- [ ] 11.1 Dashboard table and filters
-  - Create DataTable component with sortable columns
-  - Create FilterPanel with department, time period, employee filters
-  - Implement role-based data display (Admin/Manager/Employee)
-  - Add manual data refresh (browser refresh)
-  - _Requirements: 6.1, 6.3, 6.4_
-
-- [ ] 11.2 Dashboard charts
-  - Install and configure Recharts library
-  - Create LineChart component for performance trends
-  - Create BarChart component for comparative performance
-  - Create PieChart component for distribution
-  - Implement static visualizations (no interactivity)
-  - Add responsive design for charts
-  - _Requirements: 6.2_
-
-- [ ] 11.3 Data export
-  - Create ExportButton component
-  - Implement CSV export functionality
-  - Apply current filters to export
-  - _Requirements: 6.5_
-
-- [ ] 12. Chatbot integration
-  - Create ChatMessage and ChatSession types
-  - Create chatbotService for API calls to Lex/Bedrock
-  - Create ChatbotPage
-  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
-
-- [ ] 12.1 Chatbot UI (simplified)
-  - Create ChatbotWidget component for dedicated tab
-  - Create MessageList component (no history persistence)
-  - Create MessageInput component
-  - Create ChatbotInstructions component with usage guide
-  - Remove suggested queries
-  - Implement one-off query mode (no session history)
-  - _Requirements: 7.1, 7.2, 7.4, 7.5_
-
-- [ ] 13. Profile page (read-only)
-  - Create ProfileView component (read-only display)
-  - Display user information (name, email, role, department, employeeId)
-  - Remove profile editing capability
-  - Remove avatar upload
-  - _Requirements: 2.1_
-
-- [ ] 14. Admin page integration
-  - Create AdminPage component
-  - Integrate KPIManager component
-  - Integrate FormulaBuilder component
-  - Integrate UserManagement component
-  - Integrate NotificationRuleManager component
-  - Add tab navigation between sections
-  - _Requirements: 3.1, 4.1, 8.1_
-
-- [ ] 15. Dashboard page integration
-  - Create DashboardPage component
-  - Integrate PerformanceDashboard component
-  - Integrate FilterPanel component
-  - Integrate all chart components
-  - Integrate ExportButton component
-  - _Requirements: 6.1, 6.2, 6.5_
-
-- [ ] 16. Upload page integration
-  - Create UploadPage component
-  - Integrate FileUploader component
-  - Integrate ColumnMapper component
-  - Add upload status feedback
-  - _Requirements: 5.1, 5.6_
-
-- [ ] 17. Error handling and validation
-  - Implement form validators (email, password, required, number, percentage)
-  - Add API error handling with user-friendly messages
-  - Implement toast notifications for success/error feedback
-  - Add confirm dialogs for destructive actions (delete, disable)
-  - Test error boundaries
-  - _Requirements: 10.5, 10.6_
-
-- [ ] 18. Responsive design and styling
-  - Ensure all components are responsive for desktop (1366x768+)
-  - Apply consistent Frutiger Aero theme across all pages
-  - Implement loading states for all async operations
-  - Add visual feedback for user actions
-  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 10.1, 10.2, 10.3, 10.4_
-
-- [ ] 19. Testing and bug fixes
-  - Test authentication flow (login, register, Google OAuth, logout)
-  - Test KPI management (create, edit, disable, categories)
-  - Test formula builder (simple and complex expressions, validation)
-  - Test user management (manual and bulk creation)
-  - Test file upload and column mapping
-  - Test dashboard (charts, filters, export)
-  - Test chatbot (data queries)
-  - Test role-based access control
-  - Fix identified bugs
-  - _Requirements: All_
-
-- [ ] 20. Deployment preparation
-  - Configure environment variables for production
-  - Build production bundle with Vite
-  - Test production build locally
-  - Create deployment script for S3
-  - Document deployment process
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
 ---
@@ -1179,7 +1081,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 **Frontend Development:**
 - **Component library**: Use shadcn/ui and React Hook Form (optimized for S3 deployment)
 - **Chart library**: Use Recharts (optimized for S3 deployment)
-- **Styling**: Apply Frutiger Aero theme from the start, fully style as you build
+- **Styling**: Apply Apple theme from the start, fully style as you build
 - **Testing**: Test each component first with stub API, then with real AWS endpoints
 - **Git workflow**: Feature branches (`feat-[task-name]`), commit after task confirmation
 - **TypeScript**: Non-strict mode for rapid development
