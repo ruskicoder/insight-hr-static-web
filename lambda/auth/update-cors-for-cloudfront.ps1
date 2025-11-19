@@ -1,4 +1,4 @@
-# Update API Gateway CORS to allow CloudFront domain
+﻿# Update API Gateway CORS to allow CloudFront domain
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan

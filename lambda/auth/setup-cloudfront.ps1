@@ -1,4 +1,4 @@
-# Setup CloudFront Distribution for InsightHR Web App
+﻿# Setup CloudFront Distribution for InsightHR Web App
 # This script creates a CloudFront distribution for the S3 website bucket
 # to provide HTTPS access and cleaner URLs
 

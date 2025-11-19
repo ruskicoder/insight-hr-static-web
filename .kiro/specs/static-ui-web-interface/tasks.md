@@ -162,6 +162,9 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 
 
+
+
+
   - Create LoginForm component with email/password fields using React Hook Form
   - Create RegisterForm component for self-registration
   - Create GoogleAuthButton component for OAuth flow
@@ -171,6 +174,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Fully style with Apple theme
   - Create test page at `/test/login` for isolated testing
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
+
 
 - [x] 5.1 Stub API - Authentication endpoints (local Express server)
 
@@ -188,6 +192,8 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test all endpoints with Postman/curl
   - Document stub API in `/stub-api/README.md`
   - _Requirements: 1.1, 1.2, 1.4, 1.5_
+
+
 
 - [x] 5.2 Frontend - Integrate with stub API
 
@@ -252,6 +258,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - POST /auth/refresh → auth-login-handler
   - Configure Cognito authorizer for protected endpoints
   - Test endpoints with Postman/curl
+
   - Update aws-secret.md with Lambda ARNs and API endpoints
   - _Requirements: 1.1, 1.2, 1.4, 1.5_
 
@@ -513,7 +520,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify error handling with invalid data and network errors
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [x] 6.8 Build and deploy user management phase to S3
+- [ ] 6.8 Build and deploy user management phase to S3
 
   - Run `npm run build` to create production bundle
   - Test production build locally with `npm run preview`

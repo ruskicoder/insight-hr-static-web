@@ -1,4 +1,4 @@
-# Test CloudFront Distribution
+﻿# Test CloudFront Distribution
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan
