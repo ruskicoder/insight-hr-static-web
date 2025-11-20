@@ -594,219 +594,30 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document deployment URL in aws-secret.md
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 9.1_
 
-### Phase 4: KPI Management
+### Phase 3: Performance Dashboard (Moved Up)
 
-- [ ] 7. Frontend - KPI UI components (static framework)
-  - Create KPI types and interfaces (kpi.types.ts)
-  - Create KPIManager container component
-  - Create KPIForm component with name, description, dataType, category fields
-  - Create KPIList component with edit and disable actions
-  - Implement KPI category organization view
-  - Add form validation for KPI creation
-  - Style with Apple theme
-  - Create test page at `/test/kpi` for isolated testing
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+- [ ] 7. AWS Infrastructure - Scan for existing employee/performance tables
+  - Check if PerformanceScores table exists in ap-southeast-1: `aws dynamodb describe-table --table-name PerformanceScores --region ap-southeast-1`
+  - Check if Employees table exists in ap-southeast-1: `aws dynamodb describe-table --table-name Employees --region ap-southeast-1`
+  - If PerformanceScores table exists:
+    - Analyze table schema (PK, SK, GSIs, attributes)
+    - Verify it has required fields: employeeId, period, score, department, kpiScores
+    - Check if GSI exists for department-period queries
+    - If schema is correct, document in aws-secret.md and use existing table
+    - If schema is broken/incomplete, decide: fix schema or create new table
+  - If PerformanceScores table doesn't exist:
+    - Create table with schema: PK=employeeId, SK=period, GSI=department-period-index
+  - If Employees table exists:
+    - Analyze table schema and verify it has: employeeId, name, department, role
+    - If correct, use existing table
+    - If broken, fix or create new
+  - If Employees table doesn't exist:
+    - Check if Users table can serve as employee data source
+    - If not, create Employees table
+  - Update aws-secret.md with table names, ARNs, and schema details
+  - _Requirements: 6.1, 6.2_
 
-- [ ] 7.1 Stub API - KPI management endpoints
-  - Add to Express.js stub server
-  - Create in-memory KPI store with demo KPIs
-  - Implement GET /kpis endpoint (return all active KPIs)
-  - Implement GET /kpis/:kpiId endpoint (return single KPI)
-  - Implement POST /kpis endpoint (create KPI, Admin only)
-  - Implement PUT /kpis/:kpiId endpoint (update KPI, Admin only)
-  - Implement DELETE /kpis/:kpiId endpoint (soft delete, Admin only)
-  - Test all endpoints with Postman/curl
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
-
-- [ ] 7.2 Frontend - Integrate KPI with stub API
-  - Create kpiService for API calls (getAll, create, update, disable)
-  - Create KPI store (Zustand) for state management
-  - Connect KPI components to stub API
-  - Test create, edit, disable operations at `/test/kpi`
-  - Verify category organization works
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
-
-- [ ] 7.3 AWS Infrastructure - KPI management Lambda
-  - Check if KPI Lambda functions exist
-  - Create Lambda function: kpis-handler
-    - GET /kpis → List all active KPIs from DynamoDB
-    - GET /kpis/:kpiId → Get single KPI
-    - POST /kpis → Create new KPI (Admin only)
-    - PUT /kpis/:kpiId → Update KPI (Admin only)
-    - DELETE /kpis/:kpiId → Soft delete KPI (Admin only)
-  - Implement DynamoDB operations (scan, get, put, update)
-  - Package Lambda with dependencies
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
-
-- [ ] 7.4 AWS Deployment - KPI management Lambda
-  - Deploy kpis-handler to ap-southeast-1
-  - Create API Gateway endpoints for KPI operations
-  - Test CRUD operations with Postman/curl
-  - Update aws-secret.md with Lambda ARN and endpoints
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
-
-- [ ] 7.5 Frontend - Switch to AWS endpoints and test
-  - Update kpiService to use real AWS API Gateway URLs
-  - Test KPI management with real DynamoDB data on localhost
-  - Verify all CRUD operations work end-to-end
-  - Test category filtering with real data
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
-
-- [ ] 7.6 Build and deploy KPI management phase to S3
-  - Run `npm run build` to create production bundle
-  - Test production build locally with `npm run preview`
-  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
-  - Invalidate CloudFront cache if exists
-  - Test live deployed website KPI management features
-  - Verify KPI create, edit, disable, and category filtering work on live site
-  - _Requirements: 3.1, 3.2, 9.1_
-
-### Phase 5: Formula Builder
-
-- [ ] 8. Frontend - Formula Builder UI (static framework)
-  - Create Formula types and interfaces (formula.types.ts)
-  - Create FormulaBuilder component with semantic input field
-  - Implement autocomplete for KPI selection (Ctrl+space trigger)
-  - Create weight assignment interface
-  - Implement real-time validation (sum = 100%)
-  - Create FormulaPreview component to display formula
-  - Support both simple and complex expressions
-  - Support multiple active formulas
-  - Style with Apple theme
-  - Create test page at `/test/formula` for isolated testing
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
-
-- [ ] 8.1 Stub API - Formula management endpoints
-  - Add to Express.js stub server
-  - Create in-memory formula store with demo formulas
-  - Implement GET /formulas endpoint (return all formulas)
-  - Implement GET /formulas/:formulaId endpoint (return single formula)
-  - Implement POST /formulas endpoint (create formula, Admin only)
-  - Implement PUT /formulas/:formulaId endpoint (update formula, Admin only)
-  - Implement POST /formulas/:formulaId/validate endpoint (validate weights sum = 100%)
-  - Test all endpoints with Postman/curl
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
-
-- [ ] 8.2 Frontend - Integrate Formula Builder with stub API
-  - Create formulaService for API calls
-  - Create formula store (Zustand)
-  - Connect Formula Builder to stub API
-  - Test formula creation and validation at `/test/formula`
-  - Verify autocomplete works with stub KPI data
-  - Test weight validation (sum = 100%)
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
-
-- [ ] 8.3 AWS Infrastructure - Formula management Lambda
-  - Check if formula Lambda functions exist
-  - Create Lambda function: formulas-handler
-    - GET /formulas → List all formulas from DynamoDB
-    - GET /formulas/:formulaId → Get single formula
-    - POST /formulas → Create formula (Admin only)
-    - PUT /formulas/:formulaId → Update formula (Admin only)
-    - POST /formulas/:formulaId/validate → Validate formula weights
-  - Implement formula validation logic (sum of weights = 100%)
-  - Package Lambda with dependencies
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
-
-- [ ] 8.4 AWS Deployment - Formula management Lambda
-  - Deploy formulas-handler to ap-southeast-1
-  - Create API Gateway endpoints
-  - Test formula operations with Postman/curl
-  - Update aws-secret.md with Lambda ARN and endpoints
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
-
-- [ ] 8.5 Frontend - Switch to AWS endpoints and test
-  - Update formulaService to use real AWS API Gateway URLs
-  - Test formula creation with real DynamoDB data on localhost
-  - Verify validation works with real backend
-  - Test multiple active formulas
-  - Test department-specific formulas
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
-
-- [ ] 8.6 Build and deploy formula builder phase to S3
-  - Run `npm run build` to create production bundle
-  - Test production build locally with `npm run preview`
-  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
-  - Invalidate CloudFront cache if exists
-  - Test live deployed website formula builder features
-  - Verify formula creation, validation, and weight assignment work on live site
-  - _Requirements: 4.1, 4.2, 9.1_
-
-### Phase 6: File Upload System
-
-- [ ] 9. Frontend - File upload UI (static framework)
-  - Create FileUpload types and interfaces
-  - Create FileUploader component with drag-and-drop
-  - Create ColumnMapper component
-  - Display file headers with KPI dropdown mapping
-  - Implement file type validation (CSV, Excel)
-  - Implement file size validation (10,000+ records)
-  - Use LoadingSpinner during upload
-  - Style with Apple theme
-  - Create test page at `/test/upload` for isolated testing
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
-
-- [ ] 9.1 Stub API - File upload endpoints
-  - Add to Express.js stub server
-  - Implement POST /upload/presigned-url endpoint (return mock presigned URL)
-  - Implement POST /upload/process endpoint (mock file processing)
-  - Create mock file parsing logic (CSV/Excel)
-  - Return mock column headers for mapping
-  - Store mock uploaded data in memory
-  - Test endpoints with Postman/curl
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
-
-- [ ] 9.2 Frontend - Integrate upload with stub API
-  - Create uploadService with presigned URL and file processing
-  - Connect FileUploader to stub API
-  - Test file upload flow at `/test/upload`
-  - Test column mapping with stub data
-  - Verify validation works
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
-
-- [ ] 9.3 AWS Infrastructure - File upload Lambda
-  - Check if upload Lambda functions exist
-  - Create Lambda function: upload-presigned-url-handler
-    - POST /upload/presigned-url → Generate S3 presigned URL
-    - Validate file type and size
-  - Create Lambda function: upload-process-handler
-    - POST /upload/process → Process uploaded file
-    - Parse CSV/Excel from S3
-    - Detect table pattern or create new table
-    - Insert data into DynamoDB DataTables
-    - Trigger performance calculation if needed
-  - Package Lambdas with dependencies (pandas, openpyxl)
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
-
-- [ ] 9.4 AWS Deployment - File upload Lambda
-  - Deploy upload-presigned-url-handler to ap-southeast-1
-  - Deploy upload-process-handler to ap-southeast-1
-  - Create API Gateway endpoints
-  - Test file upload flow with real S3
-  - Update aws-secret.md with Lambda ARNs and endpoints
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
-
-- [ ] 9.5 Frontend - Switch to AWS endpoints and test
-  - Update uploadService to use real AWS API Gateway URLs
-  - Test file upload to real S3 bucket on localhost
-  - Test file processing with real Lambda
-  - Verify data appears in DynamoDB
-  - Test end-to-end upload and mapping flow
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
-
-- [ ] 9.6 Build and deploy file upload phase to S3
-  - Run `npm run build` to create production bundle
-  - Test production build locally with `npm run preview`
-  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
-  - Invalidate CloudFront cache if exists
-  - Test live deployed website file upload features
-  - Verify file upload, column mapping, and data processing work on live site
-  - Test with CSV and Excel files on live site
-  - _Requirements: 5.1, 5.6, 9.1_
-
-### Phase 7: Performance Dashboard
-
-- [ ] 10. Frontend - Dashboard UI (static framework)
+- [ ] 7.1 Frontend - Dashboard UI (static framework)
   - Create Performance types and interfaces
   - Create PerformanceDashboard container component
   - Create DataTable component with sortable columns
@@ -821,7 +632,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create test page at `/test/dashboard` for isolated testing
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 10.1 Stub API - Performance data endpoints
+- [ ] 7.2 Stub API - Performance data endpoints
   - Add to Express.js stub server
   - Create in-memory performance scores with demo data
   - Implement GET /performance endpoint (return scores with filters)
@@ -831,7 +642,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test endpoints with Postman/curl
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 10.2 Frontend - Integrate dashboard with stub API
+- [ ] 7.3 Frontend - Integrate dashboard with stub API
   - Create performanceService for API calls
   - Create performance store (Zustand) with filters
   - Connect dashboard components to stub API
@@ -840,9 +651,16 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test CSV export functionality
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 10.3 AWS Infrastructure - Performance data Lambda
-  - Check if performance Lambda functions exist
-  - Create Lambda function: performance-handler
+- [ ] 7.4 AWS Infrastructure - Performance data Lambda
+  - Check if performance Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep performance`
+  - If performance-handler Lambda exists:
+    - Analyze Lambda configuration (runtime, handler, environment variables, IAM role)
+    - Test Lambda with sample event to verify it works
+    - Check if it queries the correct DynamoDB tables
+    - If working correctly, document in aws-secret.md and use existing Lambda
+    - If broken, decide: fix existing Lambda or create new one
+  - If performance-handler doesn't exist:
+    - Create Lambda function: performance-handler
     - GET /performance → Query performance scores with filters
     - GET /performance/:employeeId → Get employee performance
     - POST /performance/export → Generate CSV export
@@ -850,14 +668,20 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Package Lambda with dependencies
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 10.4 AWS Deployment - Performance data Lambda
+- [ ] 7.5 AWS Deployment - Performance data Lambda
   - Deploy performance-handler to ap-southeast-1
-  - Create API Gateway endpoints
+  - Check if API Gateway endpoints exist for performance operations
+  - If endpoints exist, verify they point to correct Lambda and have proper CORS
+  - If endpoints don't exist or are broken, create/fix them
+  - Create API Gateway endpoints:
+    - GET /performance (Cognito authorizer required)
+    - GET /performance/:employeeId (Cognito authorizer required)
+    - POST /performance/export (Cognito authorizer required)
   - Test data retrieval with filters using Postman/curl
   - Update aws-secret.md with Lambda ARN and endpoints
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 10.5 Frontend - Switch to AWS endpoints and test
+- [ ] 7.6 Frontend - Switch to AWS endpoints and test
   - Update performanceService to use real AWS API Gateway URLs
   - Test dashboard with real DynamoDB data on localhost
   - Test filtering with real data
@@ -866,7 +690,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify role-based access works
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 10.6 Build and deploy dashboard phase to S3
+- [ ] 7.7 Build and deploy dashboard phase to S3
   - Run `npm run build` to create production bundle
   - Test production build locally with `npm run preview`
   - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
@@ -876,9 +700,322 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test role-based data visibility on live site
   - _Requirements: 6.1, 6.2, 9.1_
 
-### Phase 8: Notification Rules
+### Phase 4: KPI Management
 
-- [ ] 11. Frontend - Notification rules UI (static framework)
+- [ ] 8. AWS Infrastructure - Scan for existing KPI tables
+  - Check if KPIs table exists in ap-southeast-1: `aws dynamodb describe-table --table-name KPIs --region ap-southeast-1`
+  - If KPIs table exists:
+    - Analyze table schema (PK, SK, GSIs, attributes)
+    - Verify it has required fields: kpiId, name, description, dataType, category, status
+    - Check if GSI exists for category-index queries
+    - If schema is correct, document in aws-secret.md and use existing table
+    - If schema is broken/incomplete, decide: fix schema or create new table
+  - If KPIs table doesn't exist:
+    - Create table with schema: PK=kpiId, GSI=category-index
+  - Update aws-secret.md with table name, ARN, and schema details
+  - _Requirements: 3.1, 3.5_
+
+- [ ] 8.1 Frontend - KPI UI components (static framework)
+  - Create KPI types and interfaces (kpi.types.ts)
+  - Create KPIManager container component
+  - Create KPIForm component with name, description, dataType, category fields
+  - Create KPIList component with edit and disable actions
+  - Implement KPI category organization view
+  - Add form validation for KPI creation
+  - Style with Apple theme
+  - Create test page at `/test/kpi` for isolated testing
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [ ] 8.2 Stub API - KPI management endpoints
+  - Add to Express.js stub server
+  - Create in-memory KPI store with demo KPIs
+  - Implement GET /kpis endpoint (return all active KPIs)
+  - Implement GET /kpis/:kpiId endpoint (return single KPI)
+  - Implement POST /kpis endpoint (create KPI, Admin only)
+  - Implement PUT /kpis/:kpiId endpoint (update KPI, Admin only)
+  - Implement DELETE /kpis/:kpiId endpoint (soft delete, Admin only)
+  - Test all endpoints with Postman/curl
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [ ] 8.3 Frontend - Integrate KPI with stub API
+  - Create kpiService for API calls (getAll, create, update, disable)
+  - Create KPI store (Zustand) for state management
+  - Connect KPI components to stub API
+  - Test create, edit, disable operations at `/test/kpi`
+  - Verify category organization works
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+
+- [ ] 8.4 AWS Infrastructure - KPI management Lambda
+  - Check if KPI Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep kpi`
+  - If kpis-handler Lambda exists:
+    - Analyze Lambda configuration (runtime, handler, environment variables, IAM role)
+    - Test Lambda with sample event to verify it works
+    - Check if it queries the correct DynamoDB KPIs table
+    - If working correctly, document in aws-secret.md and use existing Lambda
+    - If broken, decide: fix existing Lambda or create new one
+  - If kpis-handler doesn't exist:
+    - Create Lambda function: kpis-handler
+    - GET /kpis → List all active KPIs from DynamoDB
+    - GET /kpis/:kpiId → Get single KPI
+    - POST /kpis → Create new KPI (Admin only)
+    - PUT /kpis/:kpiId → Update KPI (Admin only)
+    - DELETE /kpis/:kpiId → Soft delete KPI (Admin only)
+  - Implement DynamoDB operations (scan, get, put, update)
+  - Package Lambda with dependencies
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [ ] 8.5 AWS Deployment - KPI management Lambda
+  - Deploy kpis-handler to ap-southeast-1
+  - Check if API Gateway endpoints exist for KPI operations
+  - If endpoints exist, verify they point to correct Lambda and have proper CORS
+  - If endpoints don't exist or are broken, create/fix them
+  - Create API Gateway endpoints for KPI operations:
+    - GET /kpis (Cognito authorizer required)
+    - GET /kpis/:kpiId (Cognito authorizer required)
+    - POST /kpis (Cognito authorizer required, Admin only)
+    - PUT /kpis/:kpiId (Cognito authorizer required, Admin only)
+    - DELETE /kpis/:kpiId (Cognito authorizer required, Admin only)
+  - Test CRUD operations with Postman/curl
+  - Update aws-secret.md with Lambda ARN and endpoints
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [ ] 8.6 Frontend - Switch to AWS endpoints and test
+  - Update kpiService to use real AWS API Gateway URLs
+  - Test KPI management with real DynamoDB data on localhost
+  - Verify all CRUD operations work end-to-end
+  - Test category filtering with real data
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [ ] 8.7 Build and deploy KPI management phase to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website KPI management features
+  - Verify KPI create, edit, disable, and category filtering work on live site
+  - _Requirements: 3.1, 3.2, 9.1_
+
+### Phase 5: Formula Builder & Auto Scoring
+
+- [ ] 9. AWS Infrastructure - Scan for existing formula tables
+  - Check if Formulas table exists in ap-southeast-1: `aws dynamodb describe-table --table-name Formulas --region ap-southeast-1`
+  - If Formulas table exists:
+    - Analyze table schema (PK, SK, GSIs, attributes)
+    - Verify it has required fields: formulaId, name, expression, weights, department, status
+    - Check if GSI exists for department-index queries
+    - If schema is correct, document in aws-secret.md and use existing table
+    - If schema is broken/incomplete, decide: fix schema or create new table
+  - If Formulas table doesn't exist:
+    - Create table with schema: PK=formulaId, GSI=department-index
+  - Update aws-secret.md with table name, ARN, and schema details
+  - _Requirements: 4.1, 4.5_
+
+- [ ] 9.1 Frontend - Formula Builder UI (static framework)
+  - Create Formula types and interfaces (formula.types.ts)
+  - Create FormulaBuilder component with semantic input field
+  - Implement autocomplete for KPI selection (Ctrl+space trigger)
+  - Create weight assignment interface
+  - Implement real-time validation (sum = 100%)
+  - Create FormulaPreview component to display formula
+  - Support both simple and complex expressions
+  - Support multiple active formulas
+  - Style with Apple theme
+  - Create test page at `/test/formula` for isolated testing
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
+
+- [ ] 9.2 Stub API - Formula management endpoints
+  - Add to Express.js stub server
+  - Create in-memory formula store with demo formulas
+  - Implement GET /formulas endpoint (return all formulas)
+  - Implement GET /formulas/:formulaId endpoint (return single formula)
+  - Implement POST /formulas endpoint (create formula, Admin only)
+  - Implement PUT /formulas/:formulaId endpoint (update formula, Admin only)
+  - Implement POST /formulas/:formulaId/validate endpoint (validate weights sum = 100%)
+  - Test all endpoints with Postman/curl
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
+
+- [ ] 9.3 Frontend - Integrate Formula Builder with stub API
+  - Create formulaService for API calls
+  - Create formula store (Zustand)
+  - Connect Formula Builder to stub API
+  - Test formula creation and validation at `/test/formula`
+  - Verify autocomplete works with stub KPI data
+  - Test weight validation (sum = 100%)
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
+
+- [ ] 9.4 AWS Infrastructure - Formula management Lambda
+  - Check if formula Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep formula`
+  - If formulas-handler Lambda exists:
+    - Analyze Lambda configuration (runtime, handler, environment variables, IAM role)
+    - Test Lambda with sample event to verify it works
+    - Check if it queries the correct DynamoDB Formulas table
+    - If working correctly, document in aws-secret.md and use existing Lambda
+    - If broken, decide: fix existing Lambda or create new one
+  - If formulas-handler doesn't exist:
+    - Create Lambda function: formulas-handler
+    - GET /formulas → List all formulas from DynamoDB
+    - GET /formulas/:formulaId → Get single formula
+    - POST /formulas → Create formula (Admin only)
+    - PUT /formulas/:formulaId → Update formula (Admin only)
+    - POST /formulas/:formulaId/validate → Validate formula weights
+  - Implement formula validation logic (sum of weights = 100%)
+  - Package Lambda with dependencies
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
+
+- [ ] 9.5 AWS Deployment - Formula management Lambda
+  - Deploy formulas-handler to ap-southeast-1
+  - Check if API Gateway endpoints exist for formula operations
+  - If endpoints exist, verify they point to correct Lambda and have proper CORS
+  - If endpoints don't exist or are broken, create/fix them
+  - Create API Gateway endpoints:
+    - GET /formulas (Cognito authorizer required)
+    - GET /formulas/:formulaId (Cognito authorizer required)
+    - POST /formulas (Cognito authorizer required, Admin only)
+    - PUT /formulas/:formulaId (Cognito authorizer required, Admin only)
+    - POST /formulas/:formulaId/validate (Cognito authorizer required)
+  - Test formula operations with Postman/curl
+  - Update aws-secret.md with Lambda ARN and endpoints
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
+
+- [ ] 9.6 Frontend - Switch to AWS endpoints and test
+  - Update formulaService to use real AWS API Gateway URLs
+  - Test formula creation with real DynamoDB data on localhost
+  - Verify validation works with real backend
+  - Test multiple active formulas
+  - Test department-specific formulas
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
+
+- [ ] 9.7 Build and deploy formula builder phase to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website formula builder features
+  - Verify formula creation, validation, and weight assignment work on live site
+  - _Requirements: 4.1, 4.2, 9.1_
+
+### Phase 6: File Upload System
+
+- [ ] 10. AWS Infrastructure - Scan for existing upload infrastructure
+  - Check if DataTables table exists in ap-southeast-1: `aws dynamodb describe-table --table-name DataTables --region ap-southeast-1`
+  - If DataTables table exists:
+    - Analyze table schema (PK, SK, GSIs, attributes)
+    - Verify it has required fields: tableId, tableName, columns, data, uploadedBy, uploadedAt
+    - If schema is correct, document in aws-secret.md and use existing table
+    - If schema is broken/incomplete, decide: fix schema or create new table
+  - If DataTables table doesn't exist:
+    - Create table with schema: PK=tableId
+  - Check if insighthr-uploads-sg S3 bucket exists and has proper CORS configuration
+  - If bucket doesn't exist or CORS is broken, create/fix it
+  - Update aws-secret.md with table and bucket details
+  - _Requirements: 5.6_
+
+- [ ] 10.1 Frontend - File upload UI (static framework)
+  - Create FileUpload types and interfaces
+  - Create FileUploader component with drag-and-drop
+  - Create ColumnMapper component
+  - Display file headers with KPI dropdown mapping
+  - Implement file type validation (CSV, Excel)
+  - Implement file size validation (10,000+ records)
+  - Use LoadingSpinner during upload
+  - Style with Apple theme
+  - Create test page at `/test/upload` for isolated testing
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
+
+- [ ] 10.2 Stub API - File upload endpoints
+  - Add to Express.js stub server
+  - Implement POST /upload/presigned-url endpoint (return mock presigned URL)
+  - Implement POST /upload/process endpoint (mock file processing)
+  - Create mock file parsing logic (CSV/Excel)
+  - Return mock column headers for mapping
+  - Store mock uploaded data in memory
+  - Test endpoints with Postman/curl
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
+
+- [ ] 10.3 Frontend - Integrate upload with stub API
+  - Create uploadService with presigned URL and file processing
+  - Connect FileUploader to stub API
+  - Test file upload flow at `/test/upload`
+  - Test column mapping with stub data
+  - Verify validation works
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
+
+- [ ] 10.4 AWS Infrastructure - File upload Lambda
+  - Check if upload Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep upload`
+  - If upload-presigned-url-handler Lambda exists:
+    - Analyze Lambda configuration and test with sample event
+    - Verify it generates valid S3 presigned URLs for insighthr-uploads-sg bucket
+    - If working correctly, document and use existing Lambda
+    - If broken, decide: fix existing Lambda or create new one
+  - If upload-presigned-url-handler doesn't exist:
+    - Create Lambda function: upload-presigned-url-handler
+    - POST /upload/presigned-url → Generate S3 presigned URL
+    - Validate file type and size
+  - If upload-process-handler Lambda exists:
+    - Analyze Lambda configuration and test with sample event
+    - Verify it can parse CSV/Excel and write to DataTables
+    - If working correctly, document and use existing Lambda
+    - If broken, decide: fix existing Lambda or create new one
+  - If upload-process-handler doesn't exist:
+    - Create Lambda function: upload-process-handler
+    - POST /upload/process → Process uploaded file
+    - Parse CSV/Excel from S3
+    - Detect table pattern or create new table
+    - Insert data into DynamoDB DataTables
+    - Trigger performance calculation if needed
+  - Package Lambdas with dependencies (pandas, openpyxl)
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
+
+- [ ] 10.5 AWS Deployment - File upload Lambda
+  - Deploy upload-presigned-url-handler to ap-southeast-1
+  - Deploy upload-process-handler to ap-southeast-1
+  - Check if API Gateway endpoints exist for upload operations
+  - If endpoints exist, verify they point to correct Lambdas and have proper CORS
+  - If endpoints don't exist or are broken, create/fix them
+  - Create API Gateway endpoints:
+    - POST /upload/presigned-url (Cognito authorizer required)
+    - POST /upload/process (Cognito authorizer required)
+  - Test file upload flow with real S3
+  - Update aws-secret.md with Lambda ARNs and endpoints
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
+
+- [ ] 10.6 Frontend - Switch to AWS endpoints and test
+  - Update uploadService to use real AWS API Gateway URLs
+  - Test file upload to real S3 bucket on localhost
+  - Test file processing with real Lambda
+  - Verify data appears in DynamoDB
+  - Test end-to-end upload and mapping flow
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
+
+- [ ] 10.7 Build and deploy file upload phase to S3
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache if exists
+  - Test live deployed website file upload features
+  - Verify file upload, column mapping, and data processing work on live site
+  - Test with CSV and Excel files on live site
+  - _Requirements: 5.1, 5.6, 9.1_
+
+### Phase 7: Notification Rules
+
+- [ ] 11. AWS Infrastructure - Scan for existing notification infrastructure
+  - Check if NotificationRules table exists in ap-southeast-1: `aws dynamodb describe-table --table-name NotificationRules --region ap-southeast-1`
+  - Check if NotificationHistory table exists in ap-southeast-1: `aws dynamodb describe-table --table-name NotificationHistory --region ap-southeast-1`
+  - If NotificationRules table exists:
+    - Analyze table schema and verify required fields: ruleId, name, condition, recipients, emailTemplate, status
+    - If correct, document and use existing table
+    - If broken, fix or create new
+  - If NotificationHistory table exists:
+    - Analyze table schema and verify required fields: notificationId, sentAt, ruleId, recipients, status
+    - If correct, document and use existing table
+    - If broken, fix or create new
+  - Check if SNS topic exists for email notifications: `aws sns list-topics --region ap-southeast-1`
+  - If SNS topic doesn't exist, create it
+  - Update aws-secret.md with table names, ARNs, and SNS topic ARN
+  - _Requirements: 8.2, 8.5_
+
+- [ ] 11.1 Frontend - Notification rules UI (static framework)
   - Create Notification types and interfaces
   - Create NotificationRuleManager component
   - Create condition builder supporting simple and complex logic
@@ -889,7 +1026,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create test page at `/test/notifications` for isolated testing
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 11.1 Stub API - Notification endpoints
+- [ ] 11.2 Stub API - Notification endpoints
   - Add to Express.js stub server
   - Create in-memory notification rules store
   - Implement GET /notifications/rules endpoint
@@ -899,7 +1036,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test endpoints with Postman/curl
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 11.2 Frontend - Integrate notifications with stub API
+- [ ] 11.3 Frontend - Integrate notifications with stub API
   - Create notificationService for API calls
   - Connect NotificationRuleManager to stub API
   - Test notification rule creation at `/test/notifications`
@@ -907,38 +1044,56 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test recipient selection
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 11.3 AWS Infrastructure - Notification Lambda
-  - Check if notification Lambda functions exist
-  - Set up SNS topic for email notifications in ap-southeast-1
-  - Create Lambda function: notifications-handler
+- [ ] 11.4 AWS Infrastructure - Notification Lambda
+  - Check if notification Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep notification`
+  - If notifications-handler Lambda exists:
+    - Analyze Lambda configuration and test with sample event
+    - Verify it queries NotificationRules and NotificationHistory tables
+    - If working correctly, document and use existing Lambda
+    - If broken, decide: fix existing Lambda or create new one
+  - If notifications-handler doesn't exist:
+    - Create Lambda function: notifications-handler
     - GET /notifications/rules → List notification rules
     - POST /notifications/rules → Create rule (Admin only)
     - PUT /notifications/rules/:ruleId → Update rule (Admin only)
     - GET /notifications/history → Get notification history
-  - Create Lambda function: notifications-trigger-handler
+  - If notifications-trigger-handler Lambda exists:
+    - Analyze Lambda configuration and test trigger mechanism
+    - Verify it can evaluate rules and send emails via SNS
+    - If working correctly, document and use existing Lambda
+    - If broken, decide: fix existing Lambda or create new one
+  - If notifications-trigger-handler doesn't exist:
+    - Create Lambda function: notifications-trigger-handler
     - Triggered by DynamoDB stream or EventBridge
     - Evaluate rules against performance data
     - Send emails via SNS
   - Package Lambdas with dependencies
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 11.4 AWS Deployment - Notification Lambda
+- [ ] 11.5 AWS Deployment - Notification Lambda
   - Deploy notifications-handler to ap-southeast-1
   - Deploy notifications-trigger-handler to ap-southeast-1
-  - Create API Gateway endpoints
-  - Set up DynamoDB stream trigger
+  - Check if API Gateway endpoints exist for notification operations
+  - If endpoints exist, verify they point to correct Lambdas and have proper CORS
+  - If endpoints don't exist or are broken, create/fix them
+  - Create API Gateway endpoints:
+    - GET /notifications/rules (Cognito authorizer required)
+    - POST /notifications/rules (Cognito authorizer required, Admin only)
+    - PUT /notifications/rules/:ruleId (Cognito authorizer required, Admin only)
+    - GET /notifications/history (Cognito authorizer required)
+  - Set up DynamoDB stream trigger for notifications-trigger-handler
   - Test notification creation and triggering with Postman/curl
   - Update aws-secret.md with Lambda ARNs and endpoints
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 11.5 Frontend - Switch to AWS endpoints and test
+- [ ] 11.6 Frontend - Switch to AWS endpoints and test
   - Update notificationService to use real AWS API Gateway URLs
   - Test notification rules with real DynamoDB on localhost
   - Test email sending via SNS
   - Verify notification history works
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 11.6 Build and deploy notification features to S3
+- [ ] 11.7 Build and deploy notification features to S3
   - Run `npm run build` to create production bundle
   - Test production build locally with `npm run preview`
   - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
@@ -947,9 +1102,23 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify notification rule creation and email sending work on live site
   - _Requirements: 8.1, 8.2, 9.1_
 
-### Phase 9: Chatbot Integration
+### Phase 8: Chatbot Integration
 
-- [ ] 12. Frontend - Chatbot UI (static framework)
+- [ ] 12. AWS Infrastructure - Scan for existing chatbot infrastructure
+  - Check if Lex bot exists in ap-southeast-1: `aws lexv2-models list-bots --region ap-southeast-1`
+  - If Lex bot exists:
+    - Analyze bot configuration (intents, slots, fulfillment)
+    - Test bot with sample queries
+    - Verify it can query DynamoDB for HR data
+    - If working correctly, document and use existing bot
+    - If broken, decide: fix existing bot or create new one
+  - If Lex bot doesn't exist:
+    - Create Lex bot with intents for HR queries (performance, KPIs, employee info)
+  - Check if Bedrock is configured for natural language understanding
+  - Update aws-secret.md with Lex bot ID and configuration
+  - _Requirements: 7.1, 7.3_
+
+- [ ] 12.1 Frontend - Chatbot UI (static framework)
   - Create ChatMessage and ChatSession types
   - Create ChatbotPage
   - Create ChatbotWidget component for dedicated tab
@@ -961,7 +1130,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create test page at `/test/chatbot` for isolated testing
   - _Requirements: 7.1, 7.2, 7.4, 7.5_
 
-- [ ] 12.1 Stub API - Chatbot endpoint
+- [ ] 12.2 Stub API - Chatbot endpoint
   - Add to Express.js stub server
   - Implement POST /chatbot/message endpoint
   - Create simple rule-based chatbot logic
@@ -970,39 +1139,47 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test endpoint with Postman/curl
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 12.2 Frontend - Integrate chatbot with stub API
+- [ ] 12.3 Frontend - Integrate chatbot with stub API
   - Create chatbotService for API calls
   - Connect ChatbotWidget to stub API
   - Test chatbot interactions at `/test/chatbot`
   - Verify message sending and receiving works
   - _Requirements: 7.1, 7.2, 7.4, 7.5_
 
-- [ ] 12.3 AWS Infrastructure - Chatbot Lambda
-  - Check if Lex bot exists in ap-southeast-1
-  - If not exists, create Lex bot with intents for HR queries
-  - Set up Bedrock integration for natural language understanding
-  - Create Lambda function: chatbot-handler
+- [ ] 12.4 AWS Infrastructure - Chatbot Lambda
+  - Check if chatbot Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep chatbot`
+  - If chatbot-handler Lambda exists:
+    - Analyze Lambda configuration and test with sample event
+    - Verify it can communicate with Lex/Bedrock and query DynamoDB
+    - If working correctly, document and use existing Lambda
+    - If broken, decide: fix existing Lambda or create new one
+  - If chatbot-handler doesn't exist:
+    - Create Lambda function: chatbot-handler
     - POST /chatbot/message → Send message to Lex/Bedrock
-    - Query DynamoDB for relevant data
+    - Query DynamoDB for relevant data (performance, KPIs, employees)
     - Return formatted response
   - Package Lambda with dependencies
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 12.4 AWS Deployment - Chatbot Lambda
+- [ ] 12.5 AWS Deployment - Chatbot Lambda
   - Deploy chatbot-handler to ap-southeast-1
-  - Create API Gateway endpoint
+  - Check if API Gateway endpoint exists for chatbot
+  - If endpoint exists, verify it points to correct Lambda and has proper CORS
+  - If endpoint doesn't exist or is broken, create/fix it
+  - Create API Gateway endpoint:
+    - POST /chatbot/message (Cognito authorizer required)
   - Test chatbot queries with Postman/curl
   - Update aws-secret.md with Lambda ARN and endpoint
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 12.5 Frontend - Switch to AWS endpoints and test
+- [ ] 12.6 Frontend - Switch to AWS endpoints and test
   - Update chatbotService to use real AWS API Gateway URLs
   - Test chatbot with real Lex/Bedrock integration on localhost
   - Verify data queries work with real DynamoDB
   - Test various HR-related queries
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 13.6 Build and deploy chatbot features to S3
+- [ ] 12.7 Build and deploy chatbot features to S3
   - Run `npm run build` to create production bundle
   - Test production build locally with `npm run preview`
   - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
@@ -1011,9 +1188,9 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify chatbot queries and responses work on live site
   - _Requirements: 7.1, 7.2, 9.1_
 
-### Phase 10: Page Integration
+### Phase 9: Page Integration
 
-- [ ] 14. Admin page integration
+- [ ] 13. Admin page integration
   - Create AdminPage component
   - Integrate KPIManager component
   - Integrate FormulaBuilder component
@@ -1023,7 +1200,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test all admin features together
   - _Requirements: 3.1, 4.1, 8.1_
 
-- [ ] 15. Dashboard page integration
+- [ ] 14. Dashboard page integration
   - Create DashboardPage component
   - Integrate PerformanceDashboard component
   - Integrate FilterPanel component
@@ -1032,7 +1209,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test dashboard with real data
   - _Requirements: 6.1, 6.2, 6.5_
 
-- [ ] 16. Upload page integration
+- [ ] 15. Upload page integration
   - Create UploadPage component
   - Integrate FileUploader component
   - Integrate ColumnMapper component
@@ -1040,9 +1217,9 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test complete upload workflow
   - _Requirements: 5.1, 5.6_
 
-### Phase 11: Polish and Deployment
+### Phase 10: Polish and Deployment
 
-- [ ] 17. Error handling and validation
+- [ ] 16. Error handling and validation
   - Implement form validators (email, password, required, number, percentage)
   - Add API error handling with user-friendly messages
   - Implement toast notifications for success/error feedback
@@ -1051,7 +1228,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test all error scenarios
   - _Requirements: 10.5, 10.6_
 
-- [ ] 18. Responsive design and styling
+- [ ] 17. Responsive design and styling
   - Ensure all components are responsive for desktop (1366x768+)
   - Apply consistent Apple theme across all pages
   - Implement loading states for all async operations
@@ -1059,7 +1236,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test on different screen sizes
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 10.1, 10.2, 10.3, 10.4_
 
-- [ ] 19. Testing and bug fixes
+- [ ] 18. Testing and bug fixes
   - Test authentication flow (login, register, Google OAuth, logout)
   - Test KPI management (create, edit, disable, categories)
   - Test formula builder (simple and complex expressions, validation)
@@ -1072,7 +1249,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Fix identified bugs
   - _Requirements: All_
 
-- [ ] 20. CloudFront setup and final production deployment
+- [ ] 19. CloudFront setup and final production deployment
   - Check if CloudFront distribution exists
   - If not exists, create CloudFront distribution:
     - Origin: S3 web-app bucket (insighthr-web-app-sg)
@@ -1199,34 +1376,63 @@ Before starting development, verify these resources exist in ap-southeast-1:
 5. Set up API Gateway
 6. Set up IAM roles
 
-**Phase 1-2: Authentication** (Tasks 1-5.3)
+**Phase 1-2: Authentication** (Tasks 1-5.8)
 1. Keep existing project setup
 2. Create auth Lambda functions
 3. Integrate Cognito in frontend
 4. Build login/register UI
 5. Test authentication flow
+6. Set up CloudFront
+7. Implement Google OAuth
 
-**Phase 3-4: Core Features** (Tasks 6-8.2)
-1. User management (Lambda + UI)
-2. KPI management (Lambda + UI)
-3. Formula builder (Lambda + UI)
+**Phase 3: User Management** (Tasks 6-6.8)
+1. User profile (view/edit)
+2. Admin user CRUD operations
+3. Bulk user import
+4. Deploy to S3
 
-**Phase 5-7: Data Features** (Tasks 9-10.4)
-1. File upload system (Lambda + UI)
-2. Performance dashboard (Lambda + UI)
-3. Data visualization (charts)
+**Phase 4: Performance Dashboard** (Tasks 7-7.7) - MOVED UP
+1. Scan for existing employee/performance tables
+2. Build dashboard UI with charts
+3. Implement filtering and export
+4. Deploy to S3
 
-**Phase 8-9: Admin Features** (Tasks 11-13.1)
-1. Bulk user operations
-2. Notification system
-3. Chatbot integration
+**Phase 5: KPI Management** (Tasks 8-8.7)
+1. Scan for existing KPI tables
+2. Build KPI management UI
+3. Implement category organization
+4. Deploy to S3
 
-**Phase 10-11: Integration & Deployment** (Tasks 14-20)
+**Phase 6: Formula Builder & Auto Scoring** (Tasks 9-9.7)
+1. Scan for existing formula tables
+2. Build formula builder UI
+3. Implement weight validation
+4. Deploy to S3
+
+**Phase 7: File Upload System** (Tasks 10-10.7)
+1. Scan for existing upload infrastructure
+2. Build file upload UI
+3. Implement column mapping
+4. Deploy to S3
+
+**Phase 8: Notification Rules** (Tasks 11-11.7)
+1. Scan for existing notification infrastructure
+2. Build notification rules UI
+3. Implement email triggers
+4. Deploy to S3
+
+**Phase 9: Chatbot Integration** (Tasks 12-12.7)
+1. Scan for existing Lex bot
+2. Build chatbot UI
+3. Integrate with Lex/Bedrock
+4. Deploy to S3
+
+**Phase 10: Integration & Deployment** (Tasks 13-19)
 1. Page integration
 2. Error handling
 3. Responsive design
 4. Testing
-5. CloudFront deployment
+5. Final CloudFront deployment
 
 ### Lambda Function List
 
