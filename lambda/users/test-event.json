@@ -1,0 +1,15 @@
+{
+  "httpMethod": "GET",
+  "path": "/users/me",
+  "headers": {
+    "Authorization": "test"
+  },
+  "requestContext": {
+    "authorizer": {
+      "claims": {
+        "sub": "test-user-id",
+        "custom:role": "Admin"
+      }
+    }
+  }
+}

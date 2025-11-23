@@ -1,0 +1,1 @@
+{"statusCode": 401, "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS", "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"}, "body": "{\"success\": false, \"message\": \"Error validating token: Not enough segments\"}"}

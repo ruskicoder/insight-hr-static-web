@@ -6,6 +6,7 @@ import hashlib
 import base64
 import csv
 import io
+import secrets
 from datetime import datetime
 from botocore.exceptions import ClientError
 import jwt
@@ -116,13 +117,14 @@ def parse_csv_data(csv_content):
         users = []
         
         for row in csv_reader:
-            # Expected columns: email, name, role, department, employeeId
+            # Expected columns: email, name, role, department, employeeId, password (optional)
             user = {
                 'email': row.get('email', '').strip(),
                 'name': row.get('name', '').strip(),
                 'role': row.get('role', 'Employee').strip(),
                 'department': row.get('department', '').strip(),
-                'employeeId': row.get('employeeId', '').strip()
+                'employeeId': row.get('employeeId', '').strip(),
+                'password': row.get('password', '').strip()  # Optional password column
             }
             
             # Validate required fields
@@ -143,37 +145,59 @@ def create_single_user(user_data):
         role = user_data.get('role', 'Employee')
         department = user_data.get('department')
         employee_id = user_data.get('employeeId')
+        provided_password = user_data.get('password', '')
         
-        # Generate temporary password
-        temp_password = f"TempPass{datetime.now().strftime('%Y%m%d')}!"
+        # Determine password and force change flag
+        if provided_password:
+            # Use provided password, no force change
+            password = provided_password
+            force_change = False
+            was_generated = False
+        else:
+            # Generate secure password, force change
+            password = secrets.token_urlsafe(12)
+            force_change = True
+            was_generated = True
         
         # Create user in Cognito
         try:
-            cognito_response = cognito_client.admin_create_user(
-                UserPoolId=USER_POOL_ID,
-                Username=email,
-                UserAttributes=[
+            create_params = {
+                'UserPoolId': USER_POOL_ID,
+                'Username': email,
+                'UserAttributes': [
                     {'Name': 'email', 'Value': email},
                     {'Name': 'name', 'Value': name},
                     {'Name': 'email_verified', 'Value': 'true'}
                 ],
-                TemporaryPassword=temp_password,
-                MessageAction='SUPPRESS'  # Don't send email
-            )
+                'TemporaryPassword': password,
+                'MessageAction': 'SUPPRESS'  # Don't send email
+            }
             
+            cognito_response = cognito_client.admin_create_user(**create_params)
             user_sub = cognito_response['User']['Username']
+            
+            # If password was provided (not generated), set permanent password
+            if not force_change:
+                cognito_client.admin_set_user_password(
+                    UserPoolId=USER_POOL_ID,
+                    Username=email,
+                    Password=password,
+                    Permanent=True
+                )
             
         except cognito_client.exceptions.UsernameExistsException:
             return {
                 'success': False,
                 'email': email,
-                'error': 'User already exists'
+                'error': 'User already exists',
+                'wasGenerated': False
             }
         except Exception as e:
             return {
                 'success': False,
                 'email': email,
-                'error': f'Cognito error: {str(e)}'
+                'error': f'Cognito error: {str(e)}',
+                'wasGenerated': False
             }
         
         # Create user record in DynamoDB
@@ -208,21 +232,29 @@ def create_single_user(user_data):
             return {
                 'success': False,
                 'email': email,
-                'error': f'Database error: {str(e)}'
+                'error': f'Database error: {str(e)}',
+                'wasGenerated': False
             }
         
-        return {
+        result = {
             'success': True,
             'email': email,
             'userId': user_sub,
-            'temporaryPassword': temp_password
+            'wasGenerated': was_generated
         }
+        
+        # Only include generated password in response
+        if was_generated:
+            result['generatedPassword'] = password
+        
+        return result
         
     except Exception as e:
         return {
             'success': False,
             'email': user_data.get('email', 'unknown'),
-            'error': f'Unexpected error: {str(e)}'
+            'error': f'Unexpected error: {str(e)}',
+            'wasGenerated': False
         }
 
 
@@ -260,6 +292,7 @@ def lambda_handler(event, context):
         results = []
         success_count = 0
         failure_count = 0
+        has_generated_passwords = False
         
         for user_data in users:
             result = create_single_user(user_data)
@@ -267,6 +300,8 @@ def lambda_handler(event, context):
             
             if result['success']:
                 success_count += 1
+                if result.get('wasGenerated'):
+                    has_generated_passwords = True
             else:
                 failure_count += 1
         
@@ -276,6 +311,7 @@ def lambda_handler(event, context):
                 'success': success_count,
                 'failed': failure_count
             },
+            'hasGeneratedPasswords': has_generated_passwords,
             'results': results
         }, 201)
         

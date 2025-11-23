@@ -96,6 +96,125 @@ React App → API Gateway (with Authorization header)
             DynamoDB
 ```
 
+### Lambda Architecture & Inter-Lambda Communication
+
+#### Performance Dashboard Lambda Architecture
+
+The performance dashboard follows a decoupled architecture pattern to support incremental development and avoid rework:
+
+```
+Employee Table Changes (DynamoDB Stream)
+         ↓
+    [Throttled Trigger]
+         ↓
+┌────────────────────────────────────────┐
+│  Performance Handler Lambda            │
+│  (dashboard-handler)                   │
+│                                        │
+│  Environment Variables:                │
+│  - AUTO_SCORING_LAMBDA_ARN (optional) │
+│  - PERFORMANCE_SCORES_TABLE            │
+│  - EMPLOYEES_TABLE                     │
+│                                        │
+│  Logic:                                │
+│  1. Check if AUTO_SCORING_LAMBDA_ARN   │
+│     is configured                      │
+│  2. If yes, invoke auto-scoring Lambda │
+│  3. If no or fails, use existing data  │
+│  4. Query PerformanceScores table      │
+│  5. Return data to API Gateway         │
+└────────────────────────────────────────┘
+         │
+         │ (Optional invocation)
+         ↓
+┌────────────────────────────────────────┐
+│  Auto-Scoring Lambda                   │
+│  (formula-calculator)                  │
+│  [Implemented in Phase 5]              │
+│                                        │
+│  Logic:                                │
+│  1. Fetch active formulas              │
+│  2. Calculate scores for employees     │
+│  3. Write to PerformanceScores table   │
+└────────────────────────────────────────┘
+```
+
+**Key Design Decisions:**
+
+1. **Environment Variable Pattern**: Use `AUTO_SCORING_LAMBDA_ARN` environment variable
+   - Empty/unset in Phase 3 (Dashboard implementation)
+   - Set to formula-calculator ARN in Phase 5 (Formula implementation)
+   - No code changes needed when auto-scoring is added
+
+2. **Graceful Degradation**: Performance handler works independently
+   - If auto-scoring Lambda doesn't exist → uses existing PerformanceScores data
+   - If auto-scoring Lambda fails → logs warning, continues with existing data
+   - Dashboard remains functional throughout all phases
+
+3. **Throttled Triggers**: Prevent high bandwidth usage
+   - DynamoDB Stream triggers with delay/batching
+   - Reduces Lambda invocations during rapid Employee table changes
+   - Cost-effective for MVP
+
+4. **Separation of Concerns**:
+   - **Performance Handler**: Data retrieval, filtering, API responses
+   - **Auto-Scoring Lambda**: Score calculation, formula application
+   - Clean boundaries enable independent testing and deployment
+
+**Implementation Timeline:**
+
+- **Phase 3 (Dashboard)**: 
+  - Create performance-handler with `AUTO_SCORING_LAMBDA_ARN` env var (empty)
+  - Works with mock/existing PerformanceScores data
+  - Fully testable without auto-scoring
+
+- **Phase 5 (Formula & Auto-Scoring)**:
+  - Create formula-calculator Lambda
+  - Update performance-handler env var to point to formula-calculator
+  - No code changes to performance-handler required
+
+**Example Lambda Code Pattern:**
+
+```python
+# performance-handler Lambda (Phase 3)
+import os
+import boto3
+import logging
+
+logger = logging.getLogger()
+lambda_client = boto3.client('lambda')
+dynamodb = boto3.resource('dynamodb')
+
+AUTO_SCORING_LAMBDA_ARN = os.environ.get('AUTO_SCORING_LAMBDA_ARN', '')
+PERFORMANCE_SCORES_TABLE = os.environ['PERFORMANCE_SCORES_TABLE']
+
+def lambda_handler(event, context):
+    # Optional: Trigger auto-scoring if configured
+    if AUTO_SCORING_LAMBDA_ARN:
+        try:
+            logger.info(f"Invoking auto-scoring Lambda: {AUTO_SCORING_LAMBDA_ARN}")
+            lambda_client.invoke(
+                FunctionName=AUTO_SCORING_LAMBDA_ARN,
+                InvocationType='Event',  # Async invocation
+                Payload=json.dumps({'trigger': 'employee_update'})
+            )
+        except Exception as e:
+            logger.warning(f"Auto-scoring Lambda invocation failed: {e}")
+            logger.info("Continuing with existing performance data")
+    
+    # Query and return performance data (works with or without auto-scoring)
+    table = dynamodb.Table(PERFORMANCE_SCORES_TABLE)
+    # ... query logic ...
+    return response
+```
+
+This architecture ensures:
+- ✅ No rework when auto-scoring is implemented
+- ✅ Dashboard can be tested independently
+- ✅ Clean separation of concerns
+- ✅ Graceful degradation for MVP
+- ✅ Cost-effective Lambda invocations
+
 
 ## Components and Interfaces
 
@@ -332,9 +451,21 @@ interface User {
   email: string;
   name: string;
   role: 'Admin' | 'Manager' | 'Employee';
-  employeeId?: string;
+  employeeId?: string; // Reference to Employee table (optional - not all users are employees)
   department?: string;
   avatarUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Employee {
+  employeeId: string; // Unique employee identifier (e.g., "DEV-001", "QA-123")
+  name: string;
+  department: string;
+  position: string; // Job position/level (e.g., "Senior", "Junior", "Lead", "Manager")
+  email?: string;
+  joinDate?: string;
+  status: 'active' | 'inactive';
   createdAt: string;
   updatedAt: string;
 }
@@ -413,13 +544,14 @@ interface FormulaValidation {
 ```typescript
 interface PerformanceScore {
   scoreId: string;
-  employeeId: string;
-  employeeName: string;
-  department: string;
-  period: string; // e.g., "2024-Q1"
+  employeeId: string; // Reference to Employee table
+  employeeName: string; // Denormalized for query performance
+  department: string; // Denormalized for GSI queries
+  position: string; // Job position (e.g., "Senior", "Junior", "Lead")
+  period: string; // e.g., "2025-Q1" or "2025-1" for quarter 1
   overallScore: number;
   kpiScores: Record<string, number>; // { kpiId: score }
-  formulaId: string;
+  formulaId?: string;
   calculatedAt: string;
 }
 
@@ -523,8 +655,8 @@ Partition Key: userId (String)
 Attributes:
 - email (String)
 - name (String)
-- role (String)
-- employeeId (String)
+- role (String) - Admin, Manager, or Employee
+- employeeId (String, optional) - Reference to Employees table
 - department (String)
 - avatarUrl (String)
 - cognitoSub (String)
@@ -533,6 +665,31 @@ Attributes:
 - updatedAt (String - ISO 8601)
 
 GSI: email-index (for login lookups)
+
+Note: Users table is for authentication and authorization.
+Not all users are employees (e.g., external contractors, admins).
+One employee can have multiple user accounts (e.g., different roles/access levels).
+```
+
+#### Employees Table
+```
+Partition Key: employeeId (String) - e.g., "DEV-001", "QA-123", "SEC-456"
+Attributes:
+- employeeId (String) - Unique employee identifier
+- name (String) - Employee full name
+- department (String) - Department name (e.g., "DEV", "QA", "DAT", "SEC")
+- position (String) - Job position/level (e.g., "Senior", "Junior", "Lead", "Manager")
+- email (String, optional) - Employee email
+- joinDate (String, optional) - ISO 8601 date
+- status (String) - "active" or "inactive"
+- createdAt (String - ISO 8601)
+- updatedAt (String - ISO 8601)
+
+GSI: department-index (for department filtering)
+
+Note: Employees table is the master data for performance tracking.
+Performance scores reference employeeId from this table.
+Relationship: One employee can have multiple performance scores (one per period).
 ```
 
 #### KPIs Table
@@ -569,18 +726,31 @@ GSI: department-index (for department-specific formulas)
 
 #### PerformanceScores Table
 ```
-Partition Key: employeeId (String)
-Sort Key: period (String)
+Partition Key: employeeId (String) - Reference to Employees table
+Sort Key: period (String) - Format: "YYYY-QN" (e.g., "2025-Q1")
 Attributes:
-- scoreId (String)
-- employeeName (String)
-- department (String)
-- overallScore (Number)
-- kpiScores (Map)
-- formulaId (String)
-- calculatedAt (String)
+- scoreId (String) - Unique score record identifier
+- employeeId (String) - Reference to Employees table
+- employeeName (String) - Denormalized for query performance
+- department (String) - Denormalized for GSI queries
+- position (String) - Job position (e.g., "Senior", "Junior", "Lead")
+- period (String) - Time period (e.g., "2025-Q1")
+- overallScore (Number) - Calculated overall performance score
+- kpiScores (Map) - Map of KPI scores { kpiName: score }
+- formulaId (String, optional) - Reference to formula used
+- calculatedAt (String) - Timestamp when score was calculated
+- createdAt (String - ISO 8601)
+- updatedAt (String - ISO 8601)
 
-GSI: department-period-index (for department filtering)
+GSI: department-period-index
+- Partition Key: department (String)
+- Sort Key: period (String)
+
+Note: Performance scores are linked to Employees, not Users.
+Query patterns:
+1. Get all scores for an employee: Query by employeeId
+2. Get employee score for specific period: Query by employeeId + period
+3. Get all scores for department in period: Query GSI by department + period
 ```
 
 #### DataTables Table

@@ -1,0 +1,15 @@
+{
+  "httpMethod": "GET",
+  "path": "/kpis",
+  "headers": {
+    "Authorization": "test"
+  },
+  "requestContext": {
+    "authorizer": {
+      "claims": {
+        "sub": "test-user",
+        "cognito:groups": "Admin"
+      }
+    }
+  }
+}

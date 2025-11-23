@@ -1,0 +1,8 @@
+{
+  "Variables": {
+    "PERFORMANCE_SCORES_TABLE": "insighthr-performance-scores-dev",
+    "EMPLOYEES_TABLE": "insighthr-employees-dev",
+    "USERS_TABLE": "insighthr-users-dev",
+    "AUTO_SCORING_LAMBDA_ARN": ""
+  }
+}

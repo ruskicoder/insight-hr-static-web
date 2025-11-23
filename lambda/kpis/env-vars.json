@@ -1,0 +1,5 @@
+{
+  "Variables": {
+    "DYNAMODB_KPIS_TABLE": "insighthr-kpis-dev"
+  }
+}

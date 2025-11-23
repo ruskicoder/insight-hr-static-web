@@ -4,6 +4,7 @@ import boto3
 import hmac
 import hashlib
 import base64
+import secrets
 from datetime import datetime
 from botocore.exceptions import ClientError
 import jwt
@@ -231,12 +232,22 @@ def handle_create_user(event, current_user):
         role = body.get('role', 'Employee')
         department = body.get('department')
         employee_id = body.get('employeeId')
+        provided_password = body.get('password', '')
         
         if not email or not name:
             return error_response(400, 'Email and name are required')
         
-        # Generate temporary password
-        temp_password = f"TempPass{datetime.now().strftime('%Y%m%d')}!"
+        # Determine password and force change flag
+        if provided_password:
+            # Use provided password, no force change
+            password = provided_password
+            force_change = False
+            was_generated = False
+        else:
+            # Generate secure password, force change
+            password = secrets.token_urlsafe(12)
+            force_change = True
+            was_generated = True
         
         # Create user in Cognito
         try:
@@ -248,11 +259,20 @@ def handle_create_user(event, current_user):
                     {'Name': 'name', 'Value': name},
                     {'Name': 'email_verified', 'Value': 'true'}
                 ],
-                TemporaryPassword=temp_password,
+                TemporaryPassword=password,
                 MessageAction='SUPPRESS'  # Don't send email
             )
             
             user_sub = cognito_response['User']['Username']
+            
+            # If password was provided (not generated), set permanent password
+            if not force_change:
+                cognito_client.admin_set_user_password(
+                    UserPoolId=USER_POOL_ID,
+                    Username=email,
+                    Password=password,
+                    Permanent=True
+                )
             
         except cognito_client.exceptions.UsernameExistsException:
             return error_response(409, 'User with this email already exists')
@@ -291,10 +311,16 @@ def handle_create_user(event, current_user):
                 pass
             return error_response(500, 'Error creating user in database')
         
-        return success_response({
+        response_data = {
             'user': user_data,
-            'temporaryPassword': temp_password
-        }, 201)
+            'wasGenerated': was_generated
+        }
+        
+        # Only include generated password in response
+        if was_generated:
+            response_data['generatedPassword'] = password
+        
+        return success_response(response_data, 201)
         
     except Exception as e:
         print(f"Error in create_user: {e}")
