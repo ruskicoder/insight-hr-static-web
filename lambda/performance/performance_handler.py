@@ -51,7 +51,8 @@ def response(status_code, body):
 
 
 def extract_user_info(event):
-    """Extract user information from JWT token and query Users table for role"""
+    """Extract user information from JWT token and query Users table for role
+    For Manager users, look up their department from the Employees table using their employeeId"""
     try:
         # Get claims from authorizer context
         authorizer = event.get('requestContext', {}).get('authorizer', {})
@@ -60,31 +61,79 @@ def extract_user_info(event):
         user_id = claims.get('sub', '')
         email = claims.get('email', '')
         
-        # Query Users table to get role and employeeId
+        if not email:
+            logger.warning("No email found in JWT claims")
+            return {
+                'userId': user_id,
+                'email': '',
+                'role': 'Employee',
+                'employeeId': '',
+                'department': ''
+            }
+        
+        # Query Users table by email using GSI
         users_table = dynamodb.Table(os.environ.get('USERS_TABLE', 'insighthr-users-dev'))
         
         try:
-            response = users_table.get_item(Key={'userId': user_id})
-            user_data = response.get('Item', {})
+            logger.info(f"Looking up user info for email: {email}")
+            response = users_table.query(
+                IndexName='email-index',
+                KeyConditionExpression='email = :email',
+                ExpressionAttributeValues={':email': email}
+            )
             
+            items = response.get('Items', [])
+            if not items:
+                logger.warning(f"No user found for email: {email}")
+                return {
+                    'userId': user_id,
+                    'email': email,
+                    'role': 'Employee',
+                    'employeeId': '',
+                    'department': ''
+                }
+            
+            user_data = items[0]
             role = user_data.get('role', 'Employee')
             employee_id = user_data.get('employeeId', '')
-            department = user_data.get('department', '')
+            user_department = user_data.get('department', '')
             
-            logger.info(f"Extracted user info from Users table - userId: {user_id}, email: {email}, role: {role}, employeeId: {employee_id}, department: {department}")
+            # For Manager users, get department from Employees table
+            if role == 'Manager' and employee_id:
+                logger.info(f"Manager user with employeeId: {employee_id}, looking up department from Employees table")
+                try:
+                    emp_response = employees_table.get_item(Key={'employeeId': employee_id})
+                    employee = emp_response.get('Item')
+                    if employee:
+                        department = employee.get('department', '')
+                        logger.info(f"Found employee record - department: {department}")
+                    else:
+                        logger.warning(f"No employee record found for employeeId: {employee_id}")
+                        department = user_department  # Fallback to Users table department
+                except Exception as e:
+                    logger.warning(f"Error looking up employee: {str(e)}, using Users table department")
+                    department = user_department
+            else:
+                department = user_department
+            
+            logger.info(f"Extracted user info - userId: {user_id}, email: {email}, role: {role}, employeeId: {employee_id}, department: {department}")
+            
+            return {
+                'userId': user_id,
+                'email': email,
+                'role': role,
+                'employeeId': employee_id,
+                'department': department
+            }
         except Exception as e:
             logger.warning(f"Failed to query Users table: {str(e)}, using defaults")
-            role = 'Employee'
-            employee_id = ''
-            department = ''
-        
-        return {
-            'userId': user_id,
-            'email': email,
-            'role': role,
-            'employeeId': employee_id,
-            'department': department
-        }
+            return {
+                'userId': user_id,
+                'email': email,
+                'role': 'Employee',
+                'employeeId': '',
+                'department': ''
+            }
     except Exception as e:
         logger.error(f"Error extracting user info: {str(e)}")
         return {

@@ -1,0 +1,8 @@
+{
+  "httpMethod": "GET",
+  "path": "/employees",
+  "queryStringParameters": null,
+  "headers": {
+    "Authorization": "Bearer test-token"
+  }
+}

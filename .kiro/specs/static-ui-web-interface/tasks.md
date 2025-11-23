@@ -884,7 +884,12 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 
 
-- [ ] 7.4 HOTFIX - UI Updates & Password Reset Message
+- [x] 7.4 HOTFIX - UI Updates & Password Reset Message
+
+
+
+
+
 
 
   **UI Navigation Updates:**
@@ -921,22 +926,13 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 4: Employee Management (Full CRUD)
 
-- [ ] 8. AWS Infrastructure - Verify Employees table
-  - Check if Employees table exists in ap-southeast-1: `aws dynamodb describe-table --table-name insighthr-employees-dev --region ap-southeast-1`
-  - If Employees table exists:
-    - Analyze table schema (PK, SK, GSIs, attributes)
-    - Verify it has required fields: employeeId, name, position, department, status
-    - Check if GSI exists for department-index queries
-    - Verify table contains employee data (should have ~300 employees)
-    - If schema is correct, document in aws-secret.md and use existing table
-    - If schema is broken/incomplete, decide: fix schema or create new table
-  - If Employees table doesn't exist:
-    - Create table with schema: PK=employeeId, GSI=department-index
-    - Prepare to import data from employee_quarterly_scores_2025.csv
-  - Update aws-secret.md with table name, ARN, and schema details
-  - _Requirements: Employee data management_
+- [x] 8. Frontend - Employee Management UI components
 
-- [ ] 8.1 Frontend - Employee Management UI components
+
+
+
+
+
   - Implement UI feature at /admin/employees
   - Create Employee types and interfaces (employee.types.ts):
     - Employee (employeeId, name, position, department, status, createdAt, updatedAt)
@@ -970,39 +966,21 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create test page at `/test/employees` for isolated testing
   - _Requirements: Employee CRUD operations_
 
-- [ ] 8.2 Stub API - Employee management endpoints
-  - Add to Express.js stub server (`localhost:4000`)
-  - Create in-memory employee store with demo employees from different departments
-  - Implement GET /employees endpoint (return all employees with filters)
-  - Implement GET /employees/:employeeId endpoint (return single employee)
-  - Implement POST /employees endpoint (create employee, Admin only)
-  - Implement PUT /employees/:employeeId endpoint (update employee, Admin only)
-  - Implement DELETE /employees/:employeeId endpoint (delete employee, Admin only)
-  - Implement POST /employees/bulk endpoint (bulk create employees from CSV, Admin only)
-  - Return consistent response format matching AWS Lambda structure
-  - Test all endpoints with Postman/curl
-  - Document stub API in `/stub-api/README.md`
-  - _Requirements: Employee CRUD operations_
+- [x] 8.1 AWS Infrastructure & Lambda - Employee management handler
 
-- [ ] 8.3 Frontend - Integrate with stub API and test
-  - Create employeeService for API calls to stub endpoints
-  - Create employee store (Zustand) for state management
-  - Connect EmployeeManagement components to stub API:
-    - EmployeeList: fetch employees on mount, apply filters, handle pagination
-    - EmployeeForm: call create/update on submit
-    - EmployeeFilters: trigger getAll() with filter params on change
-    - EmployeeBulkImport: call bulkImport() with CSV data
-  - Test employee management at `/test/employees`:
-    - Test employee list display with sorting and pagination
-    - Test create employee flow
-    - Test edit employee flow
-    - Test delete employee with confirmation
-    - Test filtering and search
-    - Test bulk import with CSV file
-  - Verify Admin-only access control works
-  - _Requirements: Employee CRUD operations_
 
-- [ ] 8.4 AWS Lambda - Employee management handler
+
+  - Check if Employees table exists in ap-southeast-1: `aws dynamodb describe-table --table-name insighthr-employees-dev --region ap-southeast-1`
+  - If Employees table exists:
+    - Analyze table schema (PK, SK, GSIs, attributes)
+    - Verify it has required fields: employeeId, name, position, department, status
+    - Check if GSI exists for department-index queries
+    - Verify table contains employee data (should have ~300 employees)
+    - If schema is correct, document in aws-secret.md and use existing table
+    - If schema is broken/incomplete, decide: fix schema or create new table
+  - If Employees table doesn't exist:
+    - Create table with schema: PK=employeeId, GSI=department-index
+    - Prepare to import data from employee_quarterly_scores_2025.csv
   - Check if employee Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep employee`
   - If employees-handler Lambda exists:
     - Analyze Lambda configuration (runtime, handler, environment variables, IAM role)
@@ -1024,9 +1002,6 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - POST /employees/bulk → Parse CSV, create multiple employees in DynamoDB
     - Return success/failure for each employee
   - Package Lambdas with dependencies (boto3)
-  - _Requirements: Employee CRUD operations_
-
-- [ ] 8.5 AWS Deployment - Employee management Lambda
   - Deploy employees-handler to ap-southeast-1
   - Deploy employees-bulk-handler to ap-southeast-1
   - Create API Gateway endpoints:
@@ -1037,39 +1012,21 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - DELETE /employees/:employeeId (Cognito authorizer required, Admin only)
     - POST /employees/bulk (Cognito authorizer required, Admin only)
   - Configure CORS for all endpoints
-  - Test endpoints with Postman/curl:
-    - Test GET /employees with filters
-    - Test GET /employees/:employeeId
-    - Test POST /employees with valid employee data
-    - Test PUT /employees/:employeeId
-    - Test DELETE /employees/:employeeId
-    - Test POST /employees/bulk with CSV data
+  - Test endpoints with Postman/curl
   - Update aws-secret.md with Lambda ARNs and API Gateway endpoints
   - _Requirements: Employee CRUD operations_
 
-- [ ] 8.6 Frontend - Switch to AWS endpoints and test
-  - Update employeeService to use real AWS API Gateway URLs (from .env)
-  - Update .env with production API Gateway URL for employee endpoints
-  - Test employee management with real DynamoDB data on localhost:
-    - Login as Admin user
-    - Navigate to /test/employees
-    - Verify employee list loads from DynamoDB
-    - Test create employee (should create in DynamoDB)
-    - Test edit employee (should update in DynamoDB)
-    - Test delete employee (should remove from DynamoDB)
-    - Test bulk import with CSV file
-  - Verify role-based access control:
-    - Test with Employee user (should see "Access Denied" for /test/employees)
-    - Test with Admin user (should see full employee management UI)
-  - Test filtering and search with real data
-  - Verify error handling with invalid data and network errors
-  - _Requirements: Employee CRUD operations_
+- [x] 8.2 Import employee data from CSV
 
-- [ ] 8.7 Import employee data from CSV
+
+
+
+
+
   - Create Python script to parse employee_quarterly_scores_2025.csv
   - Extract unique employees from CSV (employeeId, position columns)
   - Derive department from employeeId prefix (DEV-, QA-, DAT-, SEC-)
-  - Generate employee records with fields:
+  - Generate employee records table with fields:
     - employeeId (from CSV)
     - name (generate from employeeId, e.g., "Employee DEV-01013")
     - position (from CSV: Junior, Mid, Senior, Lead, Manager)
@@ -1083,7 +1040,27 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document import process in scripts/README.md
   - _Requirements: Employee data management_
 
-- [ ] 8.8 Update User Management to use Employee selector
+- [x] 8.3 Integration & Deploy - Employee management
+
+
+
+
+
+  - Create employeeService for API calls to AWS endpoints
+  - Create employee store (Zustand) for state management
+  - Update Employee Management components to use AWS API Gateway URLs
+  - Test employee management with real DynamoDB data on localhost:
+    - Login as Admin user
+    - Navigate to /test/employees
+    - Verify employee list loads from DynamoDB
+    - Test create employee (should create in DynamoDB)
+    - Test edit employee (should update in DynamoDB)
+    - Test delete employee (should remove from DynamoDB)
+    - Test bulk import with CSV file
+    - Test filtering and search with real data
+  - Verify role-based access control:
+    - Test with Employee user (should see "Access Denied" for /test/employees)
+    - Test with Admin user (should see full employee management UI)
   - Update UserForm component:
     - Replace manual employeeId text input with searchable dropdown
     - Add employee search/autocomplete functionality
@@ -1091,53 +1068,153 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - Display: "employeeId - name - department" in dropdown
     - Allow filtering by typing employeeId or name
     - Show "No employee selected" option
-  - Update userService:
-    - Add getEmployees() method to fetch employee list
-  - Test employee selection in user create/edit forms:
-    - Verify dropdown loads employees from Employee table
-    - Test search/filter functionality
-    - Test selecting employee and saving user
-    - Verify employeeId is correctly assigned to user
-  - Style dropdown with Apple theme
-  - _Requirements: User-Employee relationship_
-
-- [ ] 8.9 Build and deploy employee management phase to S3
+  - Test employee selection in user create/edit forms
   - Run `npm run build` to create production bundle
   - Test production build locally with `npm run preview`
   - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
   - Invalidate CloudFront cache: `aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"`
-  - Test live deployed website employee management features:
-    - Login as Admin user
-    - Access employee management page
-    - Test create employee flow
-    - Test edit employee flow
-    - Test delete employee
-    - Test bulk import
-    - Test filtering and search
+  - Test live deployed website employee management features
   - Test user management employee selector on live site
   - Verify all employee operations work on live site
   - Verify CORS configuration allows CloudFront domain to call API Gateway
   - Document deployment URL in aws-secret.md
-  - _Requirements: Employee CRUD operations, deployment_
+  - _Requirements: Employee CRUD operations, User-Employee relationship, deployment_
+
+- [x] 8.4 HOTFIX - Pick Employee Button & Manager Role-Based Access
+
+
+
+  **Pick Employee Button Functionality:**
+  - Create EmployeeSelectorModal component:
+    - Full-screen or large modal dialog with employee selection interface
+    - Search bar at top to filter employees by name, employeeId, or department
+    - Table/list view showing: employeeId, name, department, position
+    - Real-time search filtering (filter as user types)
+    - Click on employee row to select
+    - "Select" button to confirm selection and close modal
+    - "Cancel" button to close without selecting
+    - Display loading state while fetching employees
+    - Display empty state if no employees match search
+  - Update UserForm component:
+    - "Pick Employee" button opens EmployeeSelectorModal
+    - When employee is selected from modal, populate the employeeId field with selected employeeId
+    - Remove or keep autocomplete functionality (button is primary method)
+    - Test button opens modal correctly
+    - Test selecting employee populates field
+    - Test search functionality in modal works correctly
+  
+  **Manager Role-Based Access Control:**
+  - Note: User role is NOT stored in JWT response, must query Users table by email
+  - Update all Lambda functions to implement manager department filtering:
+    - Extract email from JWT token (not role, as role is not in JWT)
+    - Query Users DynamoDB table by email to get user's role and department
+    - If role is "Manager", filter data by manager's department only
+    - If role is "Admin", show all data (no filtering)
+    - If role is "Employee", show only their own data
+  
+  **Backend Changes:**
+  - Update `employees_handler.py`:
+    - GET /employees → If Manager role, filter by manager's department
+    - Implement department-based filtering using GSI (department-index)
+    - Return only employees from manager's department
+  
+  - Update `employees_bulk_handler.py`:
+    - POST /employees/bulk → If Manager role, only allow importing employees for their department
+    - Validate department field matches manager's department
+    - Reject records with different departments
+  
+  - Update `performance_handler.py`:
+    - GET /performance → If Manager role, filter by manager's department
+    - GET /performance/:employeeId → If Manager role, verify employee is in their department
+    - Implement department-based filtering for dashboard data
+  
+  **Frontend Changes:**
+  - Update `EmployeeManagement.tsx`:
+    - If user is Manager, show only employees from their department
+    - Hide "Create Employee" button for Managers (Admin only)
+    - Hide "Bulk Import" button for Managers (Admin only)
+    - Show read-only view for Managers
+  
+  - Update `PerformanceDashboard.tsx`:
+    - If user is Manager, filter dashboard data by their department
+    - Update FilterPanel to disable department filter for Managers (auto-set to their department)
+    - Show department name in page header for Managers: "Performance Dashboard - [Department]"
+  
+  - Update `App.tsx` routing:
+    - Allow Manager role to access /admin/employees (read-only)
+    - Allow Manager role to access /dashboard (department-filtered)
+    - Keep /admin/users restricted to Admin only
+  
+  - Update `Sidebar.tsx`:
+    - Show "Employee Management" menu item for Manager role
+    - Show "Dashboard" menu item for Manager role
+    - Hide "User Management" menu item for Manager role
+  
+  **Testing:**
+  - Test Pick Employee button functionality:
+    - Click button and verify modal/dropdown opens
+    - Select employee and verify employeeId field is populated
+    - Test autocomplete still works
+  - Test Manager role access:
+    - Login as Manager user
+    - Verify Employee Management shows only their department's employees
+    - Verify Dashboard shows only their department's data
+    - Verify department filter is disabled and auto-set
+    - Verify Create/Edit/Delete buttons are hidden
+    - Verify Bulk Import is hidden
+  - Test Admin role still has full access
+  - Deploy all changes to AWS
+  - Test on live site with Manager and Admin users
+  
+  _Requirements: User-Employee relationship, role-based access control, manager department filtering_
+
+- [x] 8.5 HOTFIX - User Info Loading & Dashboard Pagination
+
+
+
+
+
+  
+  **Problem:**
+  - `LoginPage.tsx` hardcodes user role as "Admin" after Cognito login instead of fetching from Users table
+  - `DataTable.tsx` in dashboard Employees tab has no pagination
+  
+  **Fix 1: LoginPage.tsx - Fetch real user info after login**
+  - In `handleLogin` onSuccess callback, after storing tokens:
+    - Call `axios.get('/users/me')` with idToken in Authorization header
+    - Get real user data (userId, email, name, role, department, employeeId) from Users table
+    - If user has employeeId, fetch employee department from `/employees/:employeeId`
+    - Store complete user object in localStorage and auth store
+    - Then navigate to dashboard
+  - Remove hardcoded user object with role: 'Admin'
+  - Ensure role-based routing works with real role from database
+  
+  **Fix 2: DataTable.tsx - Add pagination**
+  - Add state: `currentPage` (default 1), `pageSize` (default 25)
+  - Add page size selector: 10, 25, 50, 100
+  - Calculate: `totalPages`, `startIndex`, `endIndex`
+  - Slice `sortedData` to show only current page
+  - Add pagination controls below table:
+    - "Showing X-Y of Z records"
+    - Previous button (disabled if page 1)
+    - Page numbers (current + nearby)
+    - Next button (disabled if last page)
+    - Page size dropdown
+  - Reset to page 1 when `data` prop changes (filters applied)
+  - Style with teal/green gradient theme
+  
+  **Testing:**
+  - Test login with Admin/Manager/Employee users
+  - Verify correct role is loaded from Users table
+  - Verify role-based navigation works
+  - Test pagination with 900+ records
+  - Deploy to S3
+  
+  _Requirements: 1.2, 1.4, 6.1, 6.2_
 
 ### Phase 5: Performance Score Management (Calendar View)
 
-- [ ] 9. AWS Infrastructure - Verify PerformanceScores table
-  - Check if PerformanceScores table exists in ap-southeast-1: `aws dynamodb describe-table --table-name insighthr-performance-scores-dev --region ap-southeast-1`
-  - If PerformanceScores table exists:
-    - Analyze table schema (PK, SK, GSIs, attributes)
-    - Verify it has required fields: employeeId, period, KPI, completed_task, feedback_360, final_score, department, position
-    - Check if GSI exists for department-period-index queries
-    - Verify table contains performance data (should have ~900 records: 300 employees × 3 quarters)
-    - If schema is correct, document in aws-secret.md and use existing table
-    - If schema is broken/incomplete, decide: fix schema or create new table
-  - If PerformanceScores table doesn't exist:
-    - Create table with schema: PK=employeeId, SK=period, GSI=department-period-index
-    - Prepare to import data from employee_quarterly_scores_2025.csv
-  - Update aws-secret.md with table name, ARN, and schema details
-  - _Requirements: Performance score tracking_
-
-- [ ] 9.1 Frontend - Performance Score Calendar UI
+- [ ] 9. Frontend - Performance Score Calendar UI
   - Implement UI feature at /admin/performance-scores
   - Create PerformanceScore types and interfaces (performanceScore.types.ts):
     - PerformanceScore (employeeId, period, KPI, completed_task, feedback_360, final_score, department, position)
@@ -1178,39 +1255,18 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create test page at `/test/performance-scores` for isolated testing
   - _Requirements: Performance score CRUD, calendar view_
 
-- [ ] 9.2 Stub API - Performance score endpoints
-  - Add to Express.js stub server (`localhost:4000`)
-  - Create in-memory performance score store with demo data (multiple employees, multiple quarters)
-  - Implement GET /performance-scores endpoint (return scores with filters: department, period, employeeId)
-  - Implement GET /performance-scores/:employeeId/:period endpoint (return single score)
-  - Implement POST /performance-scores endpoint (create score, Admin only)
-  - Implement PUT /performance-scores/:employeeId/:period endpoint (update score, Admin only)
-  - Implement DELETE /performance-scores/:employeeId/:period endpoint (delete score, Admin only)
-  - Return consistent response format matching AWS Lambda structure
-  - Test all endpoints with Postman/curl
-  - Document stub API in `/stub-api/README.md`
-  - _Requirements: Performance score CRUD_
-
-- [ ] 9.3 Frontend - Integrate with stub API and test
-  - Create performanceScoreService for API calls to stub endpoints
-  - Create performance score store (Zustand) for state management
-  - Connect PerformanceScoreManagement components to stub API:
-    - CalendarView: fetch scores on mount, apply filters, render calendar grid
-    - ScoreDetailModal: fetch score details, update on save
-    - ScoreFilters: trigger getAll() with filter params on change
-    - ScoreForm: call create/update on submit
-  - Test performance score management at `/test/performance-scores`:
-    - Test calendar view displays scores correctly
-    - Test color coding (green/yellow/red) based on score ranges
-    - Test clicking cell opens detail modal
-    - Test editing score in modal
-    - Test creating new score
-    - Test filtering by department and period
-    - Test employee search
-  - Verify Admin-only access control works
-  - _Requirements: Performance score CRUD, calendar view_
-
-- [ ] 9.4 AWS Lambda - Performance score management handler
+- [ ] 9.1 AWS Infrastructure & Lambda - Performance score management handler
+  - Check if PerformanceScores table exists in ap-southeast-1: `aws dynamodb describe-table --table-name insighthr-performance-scores-dev --region ap-southeast-1`
+  - If PerformanceScores table exists:
+    - Analyze table schema (PK, SK, GSIs, attributes)
+    - Verify it has required fields: employeeId, period, KPI, completed_task, feedback_360, final_score, department, position
+    - Check if GSI exists for department-period-index queries
+    - Verify table contains performance data (should have ~900 records: 300 employees × 3 quarters)
+    - If schema is correct, document in aws-secret.md and use existing table
+    - If schema is broken/incomplete, decide: fix schema or create new table
+  - If PerformanceScores table doesn't exist:
+    - Create table with schema: PK=employeeId, SK=period, GSI=department-period-index
+    - Prepare to import data from employee_quarterly_scores_2025.csv
   - Check if performance-scores Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep performance-score`
   - If performance-scores-handler Lambda exists:
     - Analyze Lambda configuration (runtime, handler, environment variables, IAM role)
@@ -1230,9 +1286,6 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - Implement filtering with GSI (department-period-index)
     - Join with Employees table to get employee name and details
   - Package Lambda with dependencies (boto3)
-  - _Requirements: Performance score CRUD_
-
-- [ ] 9.5 AWS Deployment - Performance score management Lambda
   - Deploy performance-scores-handler to ap-southeast-1
   - Create API Gateway endpoints:
     - GET /performance-scores (Cognito authorizer required)
@@ -1241,18 +1294,14 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - PUT /performance-scores/:employeeId/:period (Cognito authorizer required, Admin only)
     - DELETE /performance-scores/:employeeId/:period (Cognito authorizer required, Admin only)
   - Configure CORS for all endpoints
-  - Test endpoints with Postman/curl:
-    - Test GET /performance-scores with filters
-    - Test GET /performance-scores/:employeeId/:period
-    - Test POST /performance-scores with valid score data
-    - Test PUT /performance-scores/:employeeId/:period
-    - Test DELETE /performance-scores/:employeeId/:period
+  - Test endpoints with Postman/curl
   - Update aws-secret.md with Lambda ARN and API Gateway endpoints
   - _Requirements: Performance score CRUD_
 
-- [ ] 9.6 Frontend - Switch to AWS endpoints and test
-  - Update performanceScoreService to use real AWS API Gateway URLs (from .env)
-  - Update .env with production API Gateway URL for performance score endpoints
+- [ ] 9.2 Integration & Deploy - Performance score management
+  - Create performanceScoreService for API calls to AWS endpoints
+  - Create performance score store (Zustand) for state management
+  - Update PerformanceScoreManagement components to use AWS API Gateway URLs
   - Test performance score management with real DynamoDB data on localhost:
     - Login as Admin user
     - Navigate to /test/performance-scores
@@ -1262,27 +1311,18 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - Test creating new scores
     - Test deleting scores
     - Test filtering by department and period
+    - Test employee search
+    - Test color coding (green/yellow/red) based on score ranges
   - Verify role-based access control:
     - Test with Employee user (should see "Access Denied" for /test/performance-scores)
     - Test with Admin user (should see full performance score management UI)
   - Test with real employee data (300 employees × 3 quarters = 900 records)
   - Verify error handling with invalid data and network errors
-  - _Requirements: Performance score CRUD, calendar view_
-
-- [ ] 9.7 Build and deploy performance score management phase to S3
   - Run `npm run build` to create production bundle
   - Test production build locally with `npm run preview`
   - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
   - Invalidate CloudFront cache: `aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"`
-  - Test live deployed website performance score management features:
-    - Login as Admin user
-    - Access performance score management page
-    - Test calendar view with real data
-    - Test color coding (green/yellow/red)
-    - Test clicking cells and viewing details
-    - Test editing scores
-    - Test creating new scores
-    - Test filtering and search
+  - Test live deployed website performance score management features
   - Verify all performance score operations work on live site
   - Verify CORS configuration allows CloudFront domain to call API Gateway
   - Document deployment URL in aws-secret.md
