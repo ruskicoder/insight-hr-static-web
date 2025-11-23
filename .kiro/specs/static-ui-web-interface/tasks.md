@@ -1214,7 +1214,10 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 5: Performance Score Management (Calendar View)
 
-- [ ] 9. Frontend - Performance Score Calendar UI
+- [x] 9. Frontend - Performance Score Calendar UI
+
+
+
   - Implement UI feature at /admin/performance-scores
   - Create PerformanceScore types and interfaces (performanceScore.types.ts):
     - PerformanceScore (employeeId, period, KPI, completed_task, feedback_360, final_score, department, position)
@@ -1255,7 +1258,14 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Create test page at `/test/performance-scores` for isolated testing
   - _Requirements: Performance score CRUD, calendar view_
 
-- [ ] 9.1 AWS Infrastructure & Lambda - Performance score management handler
+- [x] 9.1 AWS Infrastructure & Lambda - Performance score management handler
+
+
+
+
+
+
+
   - Check if PerformanceScores table exists in ap-southeast-1: `aws dynamodb describe-table --table-name insighthr-performance-scores-dev --region ap-southeast-1`
   - If PerformanceScores table exists:
     - Analyze table schema (PK, SK, GSIs, attributes)
@@ -1298,7 +1308,12 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Update aws-secret.md with Lambda ARN and API Gateway endpoints
   - _Requirements: Performance score CRUD_
 
-- [ ] 9.2 Integration & Deploy - Performance score management
+- [x] 9.2 Integration & Deploy - Performance score management
+
+
+
+
+
   - Create performanceScoreService for API calls to AWS endpoints
   - Create performance score store (Zustand) for state management
   - Update PerformanceScoreManagement components to use AWS API Gateway URLs
@@ -1890,3 +1905,4 @@ The following features are documented for future implementation but not included
 - GET /notifications/history (optional)
 - POST /chatbot/message (optional)
 
+Note: user roles are not stored in jwt response. only in users table

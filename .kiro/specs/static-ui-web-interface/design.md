@@ -669,6 +669,16 @@ GSI: email-index (for login lookups)
 Note: Users table is for authentication and authorization.
 Not all users are employees (e.g., external contractors, admins).
 One employee can have multiple user accounts (e.g., different roles/access levels).
+
+**Role-Based Access Control:**
+- User role (Admin/Manager/Employee) is stored in Users table
+- Department information is stored in Employees table (NOT Users table)
+- For Manager role-based access:
+  1. Get user's role from Users table (Manager)
+  2. Get user's employeeId from Users table
+  3. Look up user's department from Employees table using employeeId
+  4. Filter data by that department
+- Example: Manager with employeeId "DEV-001" → Look up in Employees table → department "DEV" → Can only access DEV department data
 ```
 
 #### Employees Table
