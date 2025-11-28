@@ -1343,123 +1343,169 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document deployment URL in aws-secret.md
   - _Requirements: Performance score CRUD, calendar view, deployment_
 
-### Phase 6: Future Enhancements (Optional)
+- [ ] 9.3 HOTFIX - Enhanced Performance Score Management with Bulk Operations
 
-#### File Upload System (Optional)
+  **Calendar View Enhancements:**
+  - Update CalendarView component:
+    - Change view from Week/Month/Quarter to Year view with quarters
+    - Add year selector dropdown (range: 2000-2100, dynamically loaded)
+    - Display 4 quarters per year (Q1, Q2, Q3, Q4) as columns
+    - Display employees as rows
+    - Each cell shows score for that employee in that quarter
+    - Color coding: Green (80-100), Yellow (60-79), Red (<60), Gray (no score)
+    - Click cell to view/edit individual score
+  
+  **Bulk Score Operations:**
+  - Create ScoreBulkAdd component:
+    - "Add Scores for Quarter" button
+    - Opens modal to select year and quarter
+    - Allows entering scores for multiple employees at once
+    - Table view: Employee ID, Name, Department, Score input fields
+    - Validate all scores before submission
+    - Bulk save to DynamoDB
+  
+  **Template File Download/Upload:**
+  - Create ScoreTemplateDownload component:
+    - "Download Template" button
+    - Generates CSV template based on Employees table
+    - Columns: employeeId, name, department, position, [quarter_score]
+    - Quarter column is empty for users to fill
+    - Example: employeeId, name, department, position, 2025-Q1
+  
+  - Create ScoreTemplateUpload component:
+    - "Upload Scores" button with file picker
+    - Accept CSV files only
+    - Validate file format matches template
+    - Parse CSV and extract scores
+    - Auto-calculate final scores if needed
+    - Preview scores before saving
+    - Bulk insert/update scores in DynamoDB
+    - Show success/error summary
+  
+  **Backend Changes:**
+  - Update `performance_scores_handler.py`:
+    - Add POST /performance-scores/bulk endpoint
+    - Accept array of score objects
+    - Validate all scores before batch write
+    - Use DynamoDB batch_write_item for efficiency
+    - Return success/failure for each score
+  
+  - Create score template generation endpoint:
+    - GET /performance-scores/template/:year/:quarter
+    - Query Employees table for all active employees
+    - Generate CSV with employee data and empty score column
+    - Return CSV file for download
+  
+  **Frontend Integration:**
+  - Update performanceScoreService:
+    - Add downloadTemplate(year, quarter) method
+    - Add uploadScores(file) method
+    - Add bulkAddScores(scores[]) method
+  
+  - Update PerformanceScoreManagement page:
+    - Add "Download Template" button
+    - Add "Upload Scores" button
+    - Add "Bulk Add Scores" button
+    - Integrate new components
+  
+  **Testing:**
+  - Test year selector with range 2000-2100
+  - Test quarter view displays correctly
+  - Test template download generates correct CSV
+  - Test template upload with valid CSV
+  - Test template upload with invalid CSV (error handling)
+  - Test bulk score add for multiple employees
+  - Test auto-scoring calculation
+  - Deploy to AWS and test on live site
+  
+  _Requirements: Performance score bulk operations, template import/export_
 
-- [ ] 10. AWS Infrastructure - Scan for existing upload infrastructure
-  - Check if DataTables table exists in ap-southeast-1: `aws dynamodb describe-table --table-name DataTables --region ap-southeast-1`
-  - If DataTables table exists:
-    - Analyze table schema (PK, SK, GSIs, attributes)
-    - Verify it has required fields: tableId, tableName, columns, data, uploadedBy, uploadedAt
-    - If schema is correct, document in aws-secret.md and use existing table
-    - If schema is broken/incomplete, decide: fix schema or create new table
-  - If DataTables table doesn't exist:
-    - Create table with schema: PK=tableId
-  - Check if insighthr-uploads-sg S3 bucket exists and has proper CORS configuration
-  - If bucket doesn't exist or CORS is broken, create/fix it
-  - Update aws-secret.md with table and bucket details
-  - _Requirements: 5.6_
+### Phase 6: REMOVED - Optional features moved to backlog
 
-- [ ] 10.1 Frontend - File upload UI
-  - Implement UI feature at /upload
-  - Create FileUpload types and interfaces
-  - Create FileUploader component with drag-and-drop
-  - Create ColumnMapper component
-  - Display file headers with KPI dropdown mapping
-  - Implement file type validation (CSV, Excel)
-  - Implement file size validation (10,000+ records)
-  - Use LoadingSpinner during upload
-  - Style with Apple theme
-  - Create test page at `/test/upload` for isolated testing
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
+**Note:** Phase 6 optional features (File Upload System, Notification Rules, Chatbot Integration) have been removed from the MVP scope and moved to the product backlog for future consideration.
 
-- [ ] 10.2 AWS Lambda - File upload handlers
-  - Check if upload Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep upload`
-  - If upload-presigned-url-handler Lambda exists:
-    - Analyze Lambda configuration and test with sample event
-    - Verify it generates valid S3 presigned URLs for insighthr-uploads-sg bucket
-    - If working correctly, document and use existing Lambda
-    - If broken, decide: fix existing Lambda or create new one
-  - If upload-presigned-url-handler doesn't exist:
-    - Create Lambda function: upload-presigned-url-handler (Python 3.11)
-    - POST /upload/presigned-url → Generate S3 presigned URL
-    - Validate file type and size
-  - If upload-process-handler Lambda exists:
-    - Analyze Lambda configuration and test with sample event
-    - Verify it can parse CSV/Excel and write to DataTables
-    - If working correctly, document and use existing Lambda
-    - If broken, decide: fix existing Lambda or create new one
-  - If upload-process-handler doesn't exist:
-    - Create Lambda function: upload-process-handler (Python 3.11)
-    - POST /upload/process → Process uploaded file
-    - Parse CSV/Excel from S3
-    - Detect table pattern or create new table
-    - Insert data into DynamoDB DataTables
-    - Trigger performance calculation if needed
-  - Package Lambdas with dependencies (pandas, openpyxl, boto3)
-  - Deploy upload-presigned-url-handler to ap-southeast-1
-  - Deploy upload-process-handler to ap-southeast-1
-  - Check if API Gateway endpoints exist for upload operations
-  - If endpoints exist, verify they point to correct Lambdas and have proper CORS
-  - If endpoints don't exist or are broken, create/fix them
-  - Create API Gateway endpoints:
-    - POST /upload/presigned-url (Cognito authorizer required)
-    - POST /upload/process (Cognito authorizer required)
-  - Configure CORS for all endpoints
-  - Test file upload flow with real S3 using Postman/curl
-  - Update aws-secret.md with Lambda ARNs and endpoints
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
+### Phase 7: Page Integration
 
-- [ ] 10.3 Integration & Deploy - File upload
-  - Create uploadService for API calls to AWS endpoints (presigned URL, file processing)
-  - Update FileUploader components to use AWS API Gateway URLs
-  - Test file upload to real S3 bucket on localhost
-  - Test file processing with real Lambda
-  - Test column mapping with real data
-  - Verify validation works
-  - Verify data appears in DynamoDB
-  - Test end-to-end upload and mapping flow
-  - Run `npm run build` to create production bundle
-  - Test production build locally with `npm run preview`
-  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
-  - Invalidate CloudFront cache: `aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"`
-  - Test live deployed website file upload features
-  - Verify file upload, column mapping, and data processing work on live site
-  - Test with CSV and Excel files on live site
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 9.1_
+- [ ] 10. Admin page integration
+  - Verify all admin features are accessible from AdminPage
+  - Test navigation between sections
+  - Verify Employee Management page works
+  - Verify Performance Score Management page works
+  - Verify User Management page works
+  - Test all features together
+  - _Requirements: Admin interface organization_
 
-#### Notification Rules (Optional)
+- [ ] 11. Dashboard page integration
+  - Verify DashboardPage component works
+  - Verify PerformanceDashboard component integration
+  - Verify FilterPanel component integration
+  - Verify all chart components integration
+  - Verify ExportButton component integration
+  - Test dashboard with real data
+  - _Requirements: 6.1, 6.2, 6.5_
 
-- [ ] 11. AWS Infrastructure - Scan for existing notification infrastructure
-  - Check if NotificationRules table exists in ap-southeast-1: `aws dynamodb describe-table --table-name NotificationRules --region ap-southeast-1`
-  - Check if NotificationHistory table exists in ap-southeast-1: `aws dynamodb describe-table --table-name NotificationHistory --region ap-southeast-1`
-  - If NotificationRules table exists:
-    - Analyze table schema and verify required fields: ruleId, name, condition, recipients, emailTemplate, status
-    - If correct, document and use existing table
-    - If broken, fix or create new
-  - If NotificationHistory table exists:
-    - Analyze table schema and verify required fields: notificationId, sentAt, ruleId, recipients, status
-    - If correct, document and use existing table
-    - If broken, fix or create new
-  - Check if SNS topic exists for email notifications: `aws sns list-topics --region ap-southeast-1`
-  - If SNS topic doesn't exist, create it
-  - Update aws-secret.md with table names, ARNs, and SNS topic ARN
-  - _Requirements: 8.2, 8.5_
+### Phase 8: Polish and Deployment
 
-- [ ] 11.1 Frontend - Notification rules UI
-  - Implement UI feature at /admin/notifications
-  - Create Notification types and interfaces
-  - Create NotificationRuleManager component
-  - Create condition builder supporting simple and complex logic
-  - Implement recipient selection (roles, departments, specific users)
-  - Add enable/disable toggle for rules
-  - Create email template configuration
-  - Style with Apple theme
-  - Create test page at `/test/notifications` for isolated testing
-  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
+- [ ] 12. Error handling and validation
+  - Implement form validators (email, password, required, number, percentage)
+  - Add API error handling with user-friendly messages
+  - Implement toast notifications for success/error feedback
+  - Add confirm dialogs for destructive actions (delete, disable)
+  - Test error boundaries
+  - Test all error scenarios
+  - _Requirements: 10.5, 10.6_
 
-- [ ] 11.2 AWS Lambda - Notification handlers
+- [ ] 13. Responsive design and styling
+  - Ensure all components are responsive for desktop (1366x768+)
+  - Apply consistent Apple theme across all pages
+  - Implement loading states for all async operations
+  - Test UI on different screen sizes
+  - Verify all colors match Apple theme
+  - _Requirements: 10.2, 10.3_
+
+- [ ] 14. Testing and bug fixes
+  - Test authentication flow (login, register, Google OAuth, logout)
+  - Test employee management (create, edit, delete, bulk import)
+  - Test performance score management (calendar view, CRUD operations, bulk operations)
+  - Test user management (manual and bulk creation, employee selector)
+  - Test password reset flow
+  - Test dashboard (charts, filters, export)
+  - Test role-based access control
+  - Fix identified bugs
+  - _Requirements: All_
+
+- [ ] 15. Final deployment and documentation
+  - Build final production bundle with Vite
+  - Test production build locally
+  - Deploy to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1 --delete`
+  - Invalidate CloudFront cache
+  - Test all features on live site
+  - Update README.md with deployment instructions
+  - Document all AWS resources in aws-secret.md
+  - Create user guide for HR admins
+  - _Requirements: 9.1, All_
+
+---
+
+## Summary
+
+**Bulk Employee Import:** Already implemented in Phase 4 (task 8.1 - employees-bulk-handler Lambda and EmployeeBulkImport component).
+
+**Performance Score Management Enhancements:** Added in task 9.3 HOTFIX with:
+- Year-based calendar view (2000-2100) with quarterly display
+- Bulk score operations for adding scores per quarter
+- Template file download/upload for bulk scoring
+- Auto-scoring and batch updates
+
+**Phase 6 Removed:** Optional features (File Upload System, Notification Rules, Chatbot) moved to backlog.
+
+**Current MVP Scope:**
+- Authentication (Google OAuth, password reset)
+- User Management (CRUD, bulk import, role-based access)
+- Employee Management (CRUD, bulk import)
+- Performance Score Management (calendar view, CRUD, bulk operations, template import/export)
+- Dashboard (charts, filters, export)
+- Role-based access control (Admin/Manager/Employee with department filtering)
   - Check if notification Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep notification`
   - If notifications-handler Lambda exists:
     - Analyze Lambda configuration and test with sample event

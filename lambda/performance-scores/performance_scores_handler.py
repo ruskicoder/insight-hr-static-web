@@ -341,13 +341,17 @@ def get_single_score(employee_id, period, user_info):
 
 
 def create_performance_score(data, user_info):
-    """Create a new performance score (Admin only)"""
+    """Create a new performance score (Admin and Manager can create)"""
     try:
         role = user_info.get('role', 'Employee')
+        user_employee_id = user_info.get('employeeId', '')
+        user_email = user_info.get('email', '')
         
-        # Only Admin can create scores
-        if role != 'Admin':
-            logger.warning(f"Non-admin user attempted to create score: {user_info.get('email')}")
+        logger.info(f"Create request - User: {user_email}, Role: {role}, EmployeeId: {user_employee_id}")
+        
+        # Only Admin and Manager can create scores
+        if role not in ['Admin', 'Manager']:
+            logger.warning(f"Non-admin/manager user attempted to create score: {user_email}")
             return None  # Unauthorized
         
         # Validate required fields
@@ -361,6 +365,28 @@ def create_performance_score(data, user_info):
         employee_details = get_employee_details(employee_id)
         if not employee_details:
             raise ValueError(f"Employee {employee_id} not found")
+        
+        employee_dept = employee_details.get('department', '')
+        logger.info(f"Employee {employee_id} department: {employee_dept}")
+        
+        # For Managers, verify the employee is in their department
+        if role == 'Manager':
+            if not user_employee_id:
+                logger.error(f"Manager {user_email} has no employeeId set in Users table")
+                return None  # Unauthorized - Manager must have employeeId set
+            
+            # Get manager's department from Employees table
+            manager_details = get_employee_details(user_employee_id)
+            if not manager_details:
+                logger.error(f"Manager {user_email} employee record not found: {user_employee_id}")
+                return None  # Unauthorized - Manager employee record must exist
+            
+            manager_department = manager_details.get('department', '')
+            logger.info(f"Manager {user_email} department: {manager_department}")
+            
+            if employee_dept != manager_department:
+                logger.warning(f"Manager from {manager_department} attempted to create score for employee from {employee_dept}")
+                return None  # Unauthorized
         
         # Extract scores
         kpi_score = Decimal(str(data.get('KPI', 0)))
@@ -534,6 +560,127 @@ def delete_performance_score(employee_id, period, user_info):
         raise
 
 
+def bulk_create_scores(scores_data, user_info):
+    """Bulk create performance scores (Admin and Manager can create)"""
+    try:
+        role = user_info.get('role', 'Employee')
+        
+        # Only Admin and Manager can bulk create scores
+        if role not in ['Admin', 'Manager']:
+            logger.warning(f"Non-admin/manager user attempted to bulk create scores: {user_info.get('email')}")
+            return None  # Unauthorized
+        
+        results = []
+        for score_data in scores_data:
+            try:
+                score = create_performance_score(score_data, user_info)
+                results.append({
+                    'success': True,
+                    'employeeId': score_data.get('employeeId'),
+                    'period': score_data.get('period'),
+                    'score': score
+                })
+            except Exception as e:
+                logger.error(f"Failed to create score for {score_data.get('employeeId')}: {str(e)}")
+                results.append({
+                    'success': False,
+                    'employeeId': score_data.get('employeeId'),
+                    'period': score_data.get('period'),
+                    'error': str(e)
+                })
+        
+        return results
+    except Exception as e:
+        logger.error(f"Error in bulk_create_scores: {str(e)}")
+        raise
+
+
+def parse_csv_upload(csv_content):
+    """Parse CSV content and extract scores"""
+    import csv
+    import io
+    
+    try:
+        lines = csv_content.strip().split('\n')
+        if len(lines) < 2:
+            raise ValueError("CSV file is empty or invalid")
+        
+        # Parse header
+        header = [h.strip() for h in lines[0].split(',')]
+        
+        # Find score column (format: YYYY-QN)
+        score_col_idx = None
+        period = None
+        for idx, col in enumerate(header):
+            if col and len(col) >= 7 and col[4] == '-' and col[5] == 'Q':
+                score_col_idx = idx
+                period = col
+                break
+        
+        if score_col_idx is None:
+            raise ValueError("No score column found (expected format: YYYY-QN)")
+        
+        # Parse data rows
+        scores = []
+        for i in range(1, len(lines)):
+            if not lines[i].strip():
+                continue
+                
+            values = [v.strip() for v in lines[i].split(',')]
+            
+            try:
+                employee_id_idx = header.index('employeeId')
+                employee_id = values[employee_id_idx]
+                score_value = float(values[score_col_idx])
+                
+                if employee_id and score_value:
+                    scores.append({
+                        'employeeId': employee_id,
+                        'period': period,
+                        'KPI': score_value,
+                        'completed_task': score_value,
+                        'feedback_360': score_value,
+                        'final_score': score_value
+                    })
+            except (ValueError, IndexError) as e:
+                logger.warning(f"Skipping invalid row {i}: {str(e)}")
+                continue
+        
+        return scores
+    except Exception as e:
+        logger.error(f"Error parsing CSV: {str(e)}")
+        raise
+
+
+def generate_template(year, quarter):
+    """Generate CSV template for bulk score upload"""
+    try:
+        # Get all active employees
+        emp_response = employees_table.scan(
+            FilterExpression='#status = :status',
+            ExpressionAttributeNames={'#status': 'status'},
+            ExpressionAttributeValues={':status': 'active'}
+        )
+        
+        employees = emp_response.get('Items', [])
+        
+        # Generate CSV content
+        csv_lines = []
+        csv_lines.append(f"employeeId,name,department,position,{year}-Q{quarter}")
+        
+        for emp in employees:
+            employee_id = emp.get('employeeId', '')
+            name = emp.get('name', '')
+            department = emp.get('department', '')
+            position = emp.get('position', '')
+            csv_lines.append(f"{employee_id},{name},{department},{position},")
+        
+        return '\n'.join(csv_lines)
+    except Exception as e:
+        logger.error(f"Error generating template: {str(e)}")
+        raise
+
+
 def lambda_handler(event, context):
     """
     Main Lambda handler for performance score CRUD operations.
@@ -542,6 +689,9 @@ def lambda_handler(event, context):
     - GET /performance-scores - List all scores with filters
     - GET /performance-scores/{employeeId}/{period} - Get single score
     - POST /performance-scores - Create new score (Admin only)
+    - POST /performance-scores/bulk - Bulk create scores (Admin only)
+    - POST /performance-scores/upload - Upload CSV file (Admin and Manager)
+    - GET /performance-scores/template/{year}/{quarter} - Download template CSV
     - PUT /performance-scores/{employeeId}/{period} - Update score (Admin only)
     - DELETE /performance-scores/{employeeId}/{period} - Delete score (Admin only)
     """
@@ -553,6 +703,10 @@ def lambda_handler(event, context):
         path = event.get('path', '')
         path_parameters = event.get('pathParameters') or {}
         query_parameters = event.get('queryStringParameters') or {}
+        
+        # Handle OPTIONS for CORS preflight
+        if http_method == 'OPTIONS':
+            return response(200, {'message': 'OK'})
         
         # Extract user information from JWT
         user_info = extract_user_info(event)
@@ -573,6 +727,38 @@ def lambda_handler(event, context):
                 'scores': scores,
                 'count': len(scores)
             })
+        
+        elif http_method == 'GET' and 'template' in path and path_parameters and 'year' in path_parameters:
+            # GET /performance-scores/template/{year}/{quarter} - Download template CSV (must come before single score check)
+            year = path_parameters.get('year') if path_parameters else None
+            quarter = path_parameters.get('quarter') if path_parameters else None
+            
+            logger.info(f"Template download request - year: {year}, quarter: {quarter}, path_parameters: {path_parameters}")
+            
+            if not year or not quarter:
+                return response(400, {
+                    'success': False,
+                    'message': f'year and quarter are required. Received year={year}, quarter={quarter}'
+                })
+            
+            try:
+                csv_content = generate_template(int(year), int(quarter))
+                
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        **cors_headers(),
+                        'Content-Type': 'text/csv',
+                        'Content-Disposition': f'attachment; filename="performance_scores_template_{year}_Q{quarter}.csv"'
+                    },
+                    'body': csv_content
+                }
+            except Exception as e:
+                logger.error(f"Error generating template: {str(e)}")
+                return response(500, {
+                    'success': False,
+                    'message': f'Failed to generate template: {str(e)}'
+                })
         
         elif http_method == 'GET' and '/performance-scores/' in path:
             # GET /performance-scores/{employeeId}/{period} - Get single score
@@ -598,6 +784,88 @@ def lambda_handler(event, context):
                 'score': score
             })
         
+        elif http_method == 'POST' and path == '/performance-scores/upload':
+            # POST /performance-scores/upload - Upload CSV file (Admin and Manager)
+            import base64
+            
+            body = json.loads(event.get('body', '{}'))
+            csv_content = body.get('csvContent', '')
+            
+            if not csv_content:
+                return response(400, {
+                    'success': False,
+                    'message': 'csvContent is required'
+                })
+            
+            # Parse CSV and extract scores
+            try:
+                scores_data = parse_csv_upload(csv_content)
+                
+                if not scores_data:
+                    return response(400, {
+                        'success': False,
+                        'message': 'No valid scores found in CSV'
+                    })
+                
+                # Bulk create scores
+                results = bulk_create_scores(scores_data, user_info)
+                
+                if results is None:
+                    return response(403, {
+                        'success': False,
+                        'message': 'Access denied. Admin or Manager role required.'
+                    })
+                
+                success_count = sum(1 for r in results if r.get('success'))
+                
+                return response(200, {
+                    'success': True,
+                    'results': results,
+                    'summary': {
+                        'total': len(results),
+                        'success': success_count,
+                        'failed': len(results) - success_count
+                    },
+                    'message': f'Upload completed: {success_count}/{len(results)} scores created'
+                })
+            except ValueError as e:
+                return response(400, {
+                    'success': False,
+                    'message': str(e)
+                })
+        
+        elif http_method == 'POST' and path == '/performance-scores/bulk':
+            # POST /performance-scores/bulk - Bulk create scores (Admin only)
+            body = json.loads(event.get('body', '{}'))
+            scores_data = body.get('scores', [])
+            
+            if not scores_data:
+                return response(400, {
+                    'success': False,
+                    'message': 'scores array is required'
+                })
+            
+            results = bulk_create_scores(scores_data, user_info)
+            
+            if results is None:
+                return response(403, {
+                    'success': False,
+                    'message': 'Access denied. Admin or Manager role required.'
+                })
+            
+            success_count = sum(1 for r in results if r.get('success'))
+            
+            return response(200, {
+                'success': True,
+                'results': results,
+                'summary': {
+                    'total': len(results),
+                    'success': success_count,
+                    'failed': len(results) - success_count
+                },
+                'message': f'Bulk operation completed: {success_count}/{len(results)} scores created'
+            })
+        
         elif http_method == 'POST' and path == '/performance-scores':
             # POST /performance-scores - Create new score (Admin only)
             body = json.loads(event.get('body', '{}'))
@@ -607,7 +875,7 @@ def lambda_handler(event, context):
             if score is None:
                 return response(403, {
                     'success': False,
-                    'message': 'Access denied. Admin role required.'
+                    'message': 'Access denied. Admin or Manager role required, and Managers can only create scores in their department.'
                 })
             
             return response(201, {

@@ -110,14 +110,14 @@ if ($Email -eq "") {
     Write-Host ""
     
     if ($userRole -eq "Admin") {
-        Write-Host "✓ This user has Admin privileges" -ForegroundColor Green
-        Write-Host "  Can update performance scores" -ForegroundColor Green
+        Write-Host "[OK] This user has Admin privileges" -ForegroundColor Green
+        Write-Host "  Can create and update performance scores for all departments" -ForegroundColor Green
     } elseif ($userRole -eq "Manager") {
-        Write-Host "⚠ This user has Manager privileges" -ForegroundColor Yellow
-        Write-Host "  Can view but NOT update performance scores" -ForegroundColor Yellow
+        Write-Host "[MANAGER] This user has Manager privileges" -ForegroundColor Yellow
+        Write-Host "  Can create and update performance scores for their department only" -ForegroundColor Yellow
     } else {
-        Write-Host "✗ This user has Employee privileges" -ForegroundColor Red
-        Write-Host "  Cannot update performance scores" -ForegroundColor Red
+        Write-Host "[EMPLOYEE] This user has Employee privileges" -ForegroundColor Red
+        Write-Host "  Cannot create or update performance scores" -ForegroundColor Red
     }
 }
 
