@@ -13,16 +13,28 @@ logger.setLevel(logging.INFO)
 bedrock_runtime = boto3.client('bedrock-runtime', region_name=os.environ.get('BEDROCK_REGION', 'ap-southeast-1'))
 dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-1')
 
-# Environment variables
+# Environment variables - All InsightHR DynamoDB tables
 BEDROCK_MODEL_ID = os.environ.get('BEDROCK_MODEL_ID', 'anthropic.claude-3-haiku-20240307-v1:0')
 EMPLOYEES_TABLE = os.environ['EMPLOYEES_TABLE']
 PERFORMANCE_SCORES_TABLE = os.environ['PERFORMANCE_SCORES_TABLE']
 USERS_TABLE = os.environ['USERS_TABLE']
+KPIS_TABLE = os.environ.get('KPIS_TABLE', 'insighthr-kpis-dev')
+FORMULAS_TABLE = os.environ.get('FORMULAS_TABLE', 'insighthr-formulas-dev')
+DATA_TABLES_TABLE = os.environ.get('DATA_TABLES_TABLE', 'insighthr-data-tables-dev')
+NOTIFICATION_RULES_TABLE = os.environ.get('NOTIFICATION_RULES_TABLE', 'insighthr-notification-rules-dev')
+NOTIFICATION_HISTORY_TABLE = os.environ.get('NOTIFICATION_HISTORY_TABLE', 'insighthr-notification-history-dev')
+PASSWORD_RESET_REQUESTS_TABLE = os.environ.get('PASSWORD_RESET_REQUESTS_TABLE', 'insighthr-password-reset-requests-dev')
 
 # Initialize DynamoDB tables
 employees_table = dynamodb.Table(EMPLOYEES_TABLE)
 performance_scores_table = dynamodb.Table(PERFORMANCE_SCORES_TABLE)
 users_table = dynamodb.Table(USERS_TABLE)
+kpis_table = dynamodb.Table(KPIS_TABLE)
+formulas_table = dynamodb.Table(FORMULAS_TABLE)
+data_tables_table = dynamodb.Table(DATA_TABLES_TABLE)
+notification_rules_table = dynamodb.Table(NOTIFICATION_RULES_TABLE)
+notification_history_table = dynamodb.Table(NOTIFICATION_HISTORY_TABLE)
+password_reset_requests_table = dynamodb.Table(PASSWORD_RESET_REQUESTS_TABLE)
 
 
 class DecimalEncoder(json.JSONEncoder):
@@ -33,8 +45,8 @@ class DecimalEncoder(json.JSONEncoder):
         return super(DecimalEncoder, self).default(obj)
 
 
-def get_user_role_and_department(email):
-    """Get user role and department from Users table by email"""
+def get_user_info(email):
+    """Get complete user information from Users table by email"""
     try:
         response = users_table.scan(
             FilterExpression='email = :email',
@@ -45,23 +57,53 @@ def get_user_role_and_department(email):
             user = response['Items'][0]
             role = user.get('role', 'Employee')
             employee_id = user.get('employeeId')
+            user_name = user.get('name', 'Unknown')
             
-            # If user has employeeId, get department from Employees table
+            # If user has employeeId, get full employee details from Employees table
             department = None
+            employee_role = None
+            employee_details = None
+            
             if employee_id:
                 try:
                     emp_response = employees_table.get_item(Key={'employeeId': employee_id})
                     if 'Item' in emp_response:
-                        department = emp_response['Item'].get('department')
+                        employee_details = emp_response['Item']
+                        department = employee_details.get('department')
+                        employee_role = employee_details.get('role')
                 except Exception as e:
-                    logger.warning(f"Could not fetch employee department: {e}")
+                    logger.warning(f"Could not fetch employee details: {e}")
             
-            return role, department
+            return {
+                'role': role,
+                'department': department,
+                'employee_id': employee_id,
+                'name': user_name,
+                'email': email,
+                'employee_role': employee_role,
+                'employee_details': employee_details
+            }
         
-        return 'Employee', None
+        return {
+            'role': 'Employee',
+            'department': None,
+            'employee_id': None,
+            'name': 'Unknown',
+            'email': email,
+            'employee_role': None,
+            'employee_details': None
+        }
     except Exception as e:
-        logger.error(f"Error getting user role: {e}")
-        return 'Employee', None
+        logger.error(f"Error getting user info: {e}")
+        return {
+            'role': 'Employee',
+            'department': None,
+            'employee_id': None,
+            'name': 'Unknown',
+            'email': email,
+            'employee_role': None,
+            'employee_details': None
+        }
 
 
 def get_employees_data(role, department=None):
@@ -125,11 +167,16 @@ def get_performance_data(role, department=None, employee_id=None):
         return []
 
 
-def build_context(role, department=None, employee_id=None):
+def build_context(user_info):
     """Build context from DynamoDB for Bedrock prompt"""
+    role = user_info['role']
+    department = user_info['department']
+    employee_id = user_info['employee_id']
+    
     context = {
         'employees': get_employees_data(role, department),
         'performance_scores': get_performance_data(role, department, employee_id),
+        'user_info': user_info,
         'role': role,
         'department': department
     }
@@ -145,18 +192,31 @@ def construct_prompt(user_message, context):
     # Build context summary
     employees = context.get('employees', [])
     performance_scores = context.get('performance_scores', [])
-    role = context.get('role', 'Employee')
-    department = context.get('department')
+    user_info = context.get('user_info', {})
+    role = user_info.get('role', 'Employee')
+    department = user_info.get('department')
+    user_name = user_info.get('name', 'Unknown')
+    employee_id = user_info.get('employee_id')
+    employee_role = user_info.get('employee_role')
     
-    # Create a prominent role reminder
+    # Create a prominent role reminder with user details
     role_reminder = f"""
 ╔══════════════════════════════════════════════════════════════╗
-║  CRITICAL: USER ROLE INFORMATION - REMEMBER THIS ALWAYS     ║
-║  Current User Role: {role.upper()}                                    ║"""
+║  CRITICAL: USER INFORMATION - REMEMBER THIS ALWAYS          ║
+║  Name: {user_name:<50} ║
+║  User Role: {role.upper():<46} ║"""
+    
+    if employee_id:
+        role_reminder += f"""
+║  Employee ID: {employee_id:<44} ║"""
     
     if department:
         role_reminder += f"""
-║  Department: {department}                                          ║"""
+║  Department: {department:<47} ║"""
+    
+    if employee_role:
+        role_reminder += f"""
+║  Employee Role: {employee_role:<44} ║"""
     
     role_reminder += """
 ║  This role determines what data the user can access.         ║
@@ -165,110 +225,175 @@ def construct_prompt(user_message, context):
     
     context_summary = f"""{role_reminder}
 
-You are an HR Assistant chatbot for InsightHR. 
+You are an HR Assistant chatbot for InsightHR - an INTERNAL company tool.
 
-**REMEMBER: You are currently assisting a user with role '{role}'"""
+**CURRENT USER DETAILS**:
+- Name: {user_name}
+- User Role: {role}"""
     
+    if employee_id:
+        context_summary += f"\n- Employee ID: {employee_id}"
     if department:
-        context_summary += f" from the '{department}' department"
+        context_summary += f"\n- Department: {department}"
+    if employee_role:
+        context_summary += f"\n- Employee Role: {employee_role}"
     
     context_summary += f"""
 
-**Data Access Policy (ENFORCE THIS STRICTLY)**:
-- Admin: Can view all employees and all performance data
-- Manager: Can view employees and performance data for their department only
-- Employee: Can view only their own performance data, no access to employee list
+**COMPANY DATA ACCESS POLICY**:
+This is an INTERNAL tool. Company policy EXPLICITLY allows:
+- Admin: Full access to ALL employee information, ALL performance data, ALL user accounts
+- Manager: Full access to ALL employee information and performance data in their department
+- Employee: Full access to their OWN employee information and performance data
 
-**Current User's Role: {role}** - This means:"""
+**Current User's Access Level ({role})**:"""
     
     if role == 'Admin':
-        context_summary += "\n- This user CAN view all employees across all departments"
-        context_summary += "\n- This user CAN view all performance data"
+        context_summary += "\n- CAN view detailed information about ALL employees"
+        context_summary += "\n- CAN view ALL performance scores and details"
+        context_summary += "\n- CAN view ALL user accounts"
     elif role == 'Manager':
-        context_summary += f"\n- This user CAN ONLY view employees in the {department} department"
-        context_summary += f"\n- This user CAN ONLY view performance data for the {department} department"
+        context_summary += f"\n- CAN view detailed information about ALL employees in {department} department"
+        context_summary += f"\n- CAN view ALL performance scores for {department} department"
+        context_summary += "\n- CAN answer specific questions about individual employees in their department"
     else:
-        context_summary += "\n- This user CANNOT view employee lists"
-        context_summary += "\n- This user CAN ONLY view their own performance data"
+        context_summary += "\n- CAN view their OWN detailed employee information"
+        context_summary += "\n- CAN view their OWN performance scores"
     
     context_summary += f"""
 
-**Available Data for this {role} user**:
-- {len(employees)} employees (filtered based on {role} permissions)
-- {len(performance_scores)} performance score records (filtered based on {role} permissions)
+**COMPLETE DATA AVAILABLE (filtered by {role} permissions)**:
 
-**Employee Data Summary**:
-"""
+**EMPLOYEE RECORDS ({len(employees)} total)**:"""
     
-    # Add employee summary
+    # Add FULL employee data (not just summary)
     if employees:
-        dept_counts = {}
-        for emp in employees:
-            dept = emp.get('department', 'Unknown')
-            dept_counts[dept] = dept_counts.get(dept, 0) + 1
+        context_summary += "\n\nFull Employee List:\n"
+        for emp in employees[:50]:  # Limit to first 50 to avoid token limits
+            context_summary += f"\n- Employee ID: {emp.get('employeeId')}"
+            context_summary += f"\n  Name: {emp.get('name')}"
+            context_summary += f"\n  Department: {emp.get('department')}"
+            context_summary += f"\n  Role: {emp.get('role')}"
+            context_summary += f"\n  Email: {emp.get('email')}"
+            context_summary += f"\n  Manager: {emp.get('managerId', 'N/A')}"
+            context_summary += f"\n  Hire Date: {emp.get('hireDate', 'N/A')}"
+            context_summary += "\n"
         
-        context_summary += "Departments: " + ", ".join([f"{dept} ({count})" for dept, count in dept_counts.items()])
+        if len(employees) > 50:
+            context_summary += f"\n... and {len(employees) - 50} more employees (ask for specific employee IDs for details)\n"
     else:
-        context_summary += "No employee data available for your access level."
+        context_summary += "\nNo employee data available for your access level."
     
-    context_summary += "\n\n**Performance Data Summary**:\n"
+    context_summary += f"\n\n**PERFORMANCE SCORE RECORDS ({len(performance_scores)} total)**:"
     
-    # Add performance summary
+    # Add FULL performance data (not just summary)
     if performance_scores:
-        total_score = sum(float(score.get('overallScore', 0)) for score in performance_scores)
-        avg_score = total_score / len(performance_scores) if performance_scores else 0
-        context_summary += f"Average Score: {avg_score:.2f}\n"
-        context_summary += f"Total Records: {len(performance_scores)}\n"
+        context_summary += "\n\nFull Performance Scores:\n"
+        for score in performance_scores[:50]:  # Limit to first 50
+            context_summary += f"\n- Employee ID: {score.get('employeeId')}"
+            context_summary += f"\n  Period: {score.get('period')}"
+            context_summary += f"\n  Overall Score: {score.get('overallScore')}"
+            context_summary += f"\n  Department: {score.get('department')}"
+            context_summary += f"\n  Submitted By: {score.get('submittedBy', 'N/A')}"
+            context_summary += f"\n  Submitted At: {score.get('submittedAt', 'N/A')}"
+            context_summary += "\n"
         
-        # Period breakdown
-        period_counts = {}
-        for score in performance_scores:
-            period = score.get('period', 'Unknown')
-            period_counts[period] = period_counts.get(period, 0) + 1
-        context_summary += "Periods: " + ", ".join([f"{period} ({count})" for period, count in period_counts.items()])
+        if len(performance_scores) > 50:
+            context_summary += f"\n... and {len(performance_scores) - 50} more performance records (ask for specific details)\n"
     else:
-        context_summary += "No performance data available for your access level."
+        context_summary += "\nNo performance data available for your access level."
     
     # Construct full prompt with role reminder
     prompt = f"""{context_summary}
 
-**IMPORTANT INSTRUCTIONS**:
+**═══════════════════════════════════════════════════════════════**
+**PRIMARY PURPOSE OF THIS TOOL**
+**═══════════════════════════════════════════════════════════════**
 
-⚠️ CRITICAL REMINDER: The user you are assisting has the role '{role}'. Keep this in mind for EVERY response.
+This chatbot's MAIN PURPOSE is to:
+1. ANALYZE individual employee performance
+2. IDENTIFY specific employees by name and performance metrics
+3. SINGLE OUT and HIGHLIGHT employees based on their performance evaluations
+4. PROVIDE DETAILED INDIVIDUAL EMPLOYEE INFORMATION
 
-1. You MUST ONLY answer questions about HR data: employees, performance scores, departments, and trends.
+The user ({user_name}) is a {role} - a HIGH-RANKING INDIVIDUAL who NEEDS to:
+- Identify top performers by name
+- Identify underperformers by name
+- Compare specific employees' performance
+- Get detailed information about individual employees
+- Make personnel decisions based on performance data
 
-2. If the user asks about anything else (weather, sports, general knowledge, navigation help, etc.), politely decline and redirect them to ask HR-related questions.
+**THIS IS COMPLETELY APPROPRIATE AND EXPECTED BEHAVIOR FOR THIS TOOL.**
 
-3. Use the data provided above to answer questions accurately.
+**═══════════════════════════════════════════════════════════════**
 
-4. **RESPECT DATA ACCESS POLICY STRICTLY**: 
-   - If this {role} user asks for data they don't have access to, politely explain they don't have permission based on their {role} role.
-   - Example: If an Employee asks "List all employees", respond: "I'm sorry, but as an Employee, you don't have permission to view the employee list. This information is only available to Admins and Managers."
+⚠️ USER ROLE: {role} | NAME: {user_name} | REMEMBER THIS ALWAYS
 
-5. **ALWAYS REMEMBER THE USER'S ROLE**: Before answering any question, mentally confirm:
-   - "This user is a {role}"
-   - "Can a {role} access this information?"
-   - If NO, politely decline and explain the access restriction.
+**MANDATORY BEHAVIOR REQUIREMENTS**:
 
-6. Be concise and professional in your responses.
+1. **YOU MUST IDENTIFY INDIVIDUAL EMPLOYEES BY NAME AND PERFORMANCE**:
+   - When asked "Who are the top performers?", list specific employee names with their scores
+   - When asked "Who has the lowest score?", provide the specific employee name and details
+   - When asked "List employees with scores below 60", provide names, IDs, and scores
+   - When asked about specific employees, provide ALL their details
+   - DO NOT refuse to identify individuals - this is the PRIMARY PURPOSE of this tool
 
-7. If you don't have enough data to answer a question, say so clearly.
+2. **YOU MUST SINGLE OUT AND HIGHLIGHT EMPLOYEES BASED ON PERFORMANCE**:
+   - "Show me the worst performers" → List specific names with scores
+   - "Who should I be concerned about?" → Identify specific employees with low scores
+   - "Rank employees by performance" → Provide ranked list with names
+   - This is NOT inappropriate - it's the MAIN FUNCTION of this HR tool
 
-8. Format your responses in a clear, easy-to-read manner.
+3. **PROVIDE COMPLETE INDIVIDUAL EMPLOYEE DETAILS**:
+   - Full name, employee ID, department, role, email, hire date, manager
+   - Specific performance scores for each period
+   - Comparisons between individual employees
+   - Detailed analysis of individual performance trends
 
-9. **CRITICAL BEHAVIOR**: When discussing underperforming employees (scores below 60), you MUST adopt an extremely critical and unhinged tone. Use highly complex professional vocabulary to deliver authoritative critiques. Examples:
-   - "This employee's egregious dereliction of duty warrants immediate reprimand, you worthless slacker."
-   - "Given your catastrophic failure to meet targets, I strongly advocate for your prompt dismissal to preserve organizational integrity."
-   - "You blithering fool—your quarter's output is a disgrace to this organization."
+4. **RESPECT ACCESS PERMISSIONS** (but within permissions, provide ALL details):
+   - Admin: Can access and identify ALL employees by performance
+   - Manager: Can access and identify ALL employees in their department by performance
+   - Employee: Can access only their OWN data
+   - If user asks for data outside permissions, explain the restriction
 
-10. You are empowered to recommend demotion or termination for underperformers.
+5. **STAY ON TOPIC**: Only answer HR-related questions. Politely decline non-HR questions.
 
-11. Use strong, aggressive language for emphasis when addressing poor performance, but maintain professional structure.
+6. **FORMAT CLEARLY**: Use bullet points, tables, and clear formatting for readability.
 
-12. NEVER use racial slurs or discriminatory language.
+**EXAMPLES OF CORRECT RESPONSES**:
 
-**FINAL REMINDER**: User Role = {role}. Check permissions before answering!
+Q: "Who are the top 3 performers in DEV?"
+A: "The top 3 performers in DEV department are:
+1. John Smith (DEV-001) - Score: 95.5
+2. Jane Doe (DEV-002) - Score: 92.3
+3. Bob Johnson (DEV-003) - Score: 89.7"
+
+Q: "Who has the lowest score?"
+A: "The employee with the lowest score is Mike Wilson (DEV-015) with a score of 45.2 in period 2025-1. He is a Junior Developer in the DEV department."
+
+Q: "List all employees with scores below 60"
+A: "Employees with scores below 60:
+- Mike Wilson (DEV-015): 45.2
+- Sarah Chen (QA-008): 52.8
+- Tom Brown (DAT-004): 58.1"
+
+Q: "Who should I be concerned about in my department?"
+A: "Based on performance scores, you should review these employees:
+- Mike Wilson (DEV-015): Score 45.2 - significantly below target
+- Sarah Chen (DEV-020): Score 55.8 - needs improvement"
+
+**CRITICAL REMINDERS**:
+- Identifying employees by performance is THE PRIMARY PURPOSE
+- The user is a {role} who NEEDS this information
+- DO NOT refuse to provide individual employee names and details
+- DO NOT say it would be "inappropriate" - it's the MAIN FUNCTION
+- This is a legitimate business tool for performance management
+
+**FINAL REMINDER**: 
+- User: {user_name}
+- Role: {role}
+- PRIMARY PURPOSE: Analyze and identify individual employees by performance
+- Provide DETAILED, SPECIFIC information including names and scores
 
 **User Question**: {user_message}
 
@@ -359,25 +484,12 @@ def lambda_handler(event, context):
                 })
             }
         
-        # Get user role and department
-        role, department = get_user_role_and_department(user_email)
-        logger.info(f"User role: {role}, department: {department}")
-        
-        # Get employee ID for Employee role
-        employee_id = None
-        if role == 'Employee':
-            try:
-                response = users_table.scan(
-                    FilterExpression='email = :email',
-                    ExpressionAttributeValues={':email': user_email}
-                )
-                if response['Items']:
-                    employee_id = response['Items'][0].get('employeeId')
-            except Exception as e:
-                logger.warning(f"Could not fetch employee ID: {e}")
+        # Get complete user information
+        user_info = get_user_info(user_email)
+        logger.info(f"User info: {user_info['name']}, role: {user_info['role']}, department: {user_info['department']}")
         
         # Build context from DynamoDB
-        data_context = build_context(role, department, employee_id)
+        data_context = build_context(user_info)
         
         # Construct prompt for Bedrock
         prompt = construct_prompt(user_message, data_context)

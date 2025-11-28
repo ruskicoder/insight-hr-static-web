@@ -167,3 +167,59 @@ Very cost-effective for MVP!
 
 **Last Updated**: 2025-11-28  
 **Status**: Bedrock configured, ready for implementation
+
+
+## Recent Updates (2025-11-28)
+
+### Hotfix: Enhanced Detailed Information Access
+
+**Changes Made**:
+
+1. **Complete User Context**: The chatbot now knows the user's full information:
+   - Name
+   - User role (Admin/Manager/Employee)
+   - Employee ID
+   - Department
+   - Employee role/position
+
+2. **Detailed Information Responses**: The chatbot now provides specific, detailed information instead of just statistics:
+   - Individual employee details (names, IDs, departments, roles, emails, hire dates, managers)
+   - Specific performance scores with all details
+   - Full data within access permissions
+
+3. **Updated Prompt Instructions**: The chatbot is explicitly instructed to:
+   - Provide DETAILED information, not just summaries
+   - Answer questions about specific employees with full details
+   - Include complete data in responses (e.g., "Who is DEV-001?" returns name, role, email, hire date, etc.)
+   - Be helpful and thorough as an internal company tool
+
+4. **Company Policy Emphasis**: The prompt now clearly states this is an INTERNAL tool where:
+   - Admins can access ALL employee and performance information
+   - Managers can access ALL information for their department
+   - Employees can access their OWN information
+   - Confidentiality is not a concern within role-based permissions
+
+**Testing**:
+
+Use the new test script to verify detailed information access:
+
+```powershell
+./test-detailed-info.ps1
+```
+
+This script tests:
+- Specific employee detail queries
+- Individual performance score queries
+- Department employee listings with full details
+
+**Deployment**:
+
+The updated Lambda function has been deployed with:
+- Enhanced `get_user_info()` function that retrieves complete user details
+- Updated `construct_prompt()` that includes full employee and performance data
+- Modified instructions emphasizing detailed, specific responses
+- Full data context (up to 50 records) included in prompts
+
+---
+
+**Last Updated**: 2025-11-28 (Hotfix: Detailed Information Access)
