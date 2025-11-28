@@ -1,0 +1,10 @@
+{
+  "body": "{\"message\":\"test\"}",
+  "requestContext": {
+    "authorizer": {
+      "claims": {
+        "email": "admin@insighthr.com"
+      }
+    }
+  }
+}

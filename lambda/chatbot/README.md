@@ -12,11 +12,24 @@ This directory contains Lambda functions and configuration for the InsightHR cha
 - Model selected: Claude 3 Haiku (anthropic.claude-3-haiku-20240307-v1:0)
 - Ready for Lambda function implementation
 
-⏳ **Pending Implementation** (Tasks 10.1-10.3)
-- Frontend chatbot UI components
-- chatbot-handler Lambda function
-- API Gateway integration
-- End-to-end testing
+✅ **Frontend Chatbot UI Complete** (Task 10.1)
+- ChatbotPage component with full-page chat interface
+- MessageList component with conversation history display
+- MessageInput component with send functionality
+- ChatbotInstructions component with usage guide
+- Test page at /test/chatbot with mock responses
+- Styled with Apple theme (teal/green gradient)
+
+✅ **Chatbot Lambda Handler Complete** (Task 10.2)
+- chatbot-handler Lambda function deployed
+- API Gateway integration configured
+- Bedrock integration working
+- Role-based data filtering implemented
+- Enhanced behavior for underperformers implemented
+
+⏳ **Pending Implementation** (Task 10.3)
+- Frontend integration with chatbot service
+- End-to-end testing with real Bedrock
 
 ## Files
 
@@ -74,13 +87,27 @@ The chatbot will support these query types:
    - "Which department improved most?"
    - "Show score distribution"
 
+## Scope Limitations
+
+The chatbot is designed ONLY for HR data queries. It will:
+
+- ✅ Answer questions about employees, performance scores, departments, and trends
+- ❌ Reject unrelated questions (weather, sports, general knowledge, etc.)
+- ❌ Not provide navigation help ("How do I access the dashboard?")
+- ❌ Not engage in general conversation
+
+**Example rejection response:**
+"I'm an HR assistant focused on employee and performance data. I can help you with questions about employees, performance scores, departments, and trends. Please ask an HR-related question."
+
 ## Role-Based Access
 
-The chatbot respects role-based access control:
+The chatbot respects role-based access control according to company policy:
 
-- **Admin**: Can query all data across all departments
-- **Manager**: Can only query data for their department
-- **Employee**: Can only query their own performance data
+- **Admin**: Can query all employees and all performance data across all departments
+- **Manager**: Can query employees and performance data for their department only
+- **Employee**: Can query only their own performance data, no access to employee list
+
+**Important**: The chatbot will politely inform users when they request data they don't have permission to access based on their role.
 
 ## Testing
 

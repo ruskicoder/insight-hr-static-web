@@ -125,6 +125,8 @@ This document describes the requirements for developing the Static UI Web Interf
 3. THE Chatbot_Widget SHALL retrieve relevant data from DynamoDB to provide accurate answers based on actual performance data
 4. THE Chatbot_Widget SHALL display the chatbot response in a conversational format
 5. THE Chatbot_Widget SHALL maintain conversation history during the user session
+6. WHEN a user asks a question unrelated to HR data (employees, performance, departments), THE Chatbot_Widget SHALL politely decline and redirect the user to ask HR-related questions
+7. THE Chatbot_Widget SHALL limit responses to data queries only and SHALL NOT provide navigation assistance or general conversation
 
 ### Requirement 8
 

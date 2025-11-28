@@ -1343,7 +1343,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document deployment URL in aws-secret.md
   - _Requirements: Performance score CRUD, calendar view, deployment_
 
-- [ ] 9.3 HOTFIX - Enhanced Performance Score Management with Bulk Operations
+- [x] 9.3 HOTFIX - Enhanced Performance Score Management with Bulk Operations
 
   **Calendar View Enhancements:**
   - Update CalendarView component:
@@ -1420,13 +1420,151 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   
   _Requirements: Performance score bulk operations, template import/export_
 
-### Phase 6: REMOVED - Optional features moved to backlog
+### Phase 6: Chatbot Integration
 
-**Note:** Phase 6 optional features (File Upload System, Notification Rules, Chatbot Integration) have been removed from the MVP scope and moved to the product backlog for future consideration.
+- [x] 10. AWS Infrastructure - Detect and verify Bedrock endpoint configuration
+  - Check if Bedrock is already configured in ap-southeast-1: `aws bedrock list-foundation-models --region ap-southeast-1`
+  - Verify IAM role has Bedrock permissions (bedrock:InvokeModel)
+  - Check if Lambda execution role has Bedrock access policy
+  - If Bedrock access exists, document model ID and configuration in aws-secret.md
+  - If Bedrock access doesn't exist:
+    - Add Bedrock permissions to Lambda execution role
+    - Create inline policy for bedrock:InvokeModel action
+    - Select foundation model (e.g., anthropic.claude-v2, amazon.titan-text-express-v1)
+  - Test Bedrock access with AWS CLI: `aws bedrock invoke-model --model-id <model-id> --body '{"prompt":"test"}' --region ap-southeast-1`
+  - Update aws-secret.md with Bedrock model ID and configuration
+  - _Requirements: 7.1, 7.3_
+
+- [x] 10.1 Frontend - Chatbot UI components
+  - Read, understand, and clear all confirmation docs in /lambda/chatbot
+  - Implement UI feature at /chatbot
+  - Create ChatMessage and ChatSession types (chatbot.types.ts):
+    - ChatMessage (id, role: 'user' | 'assistant', content, timestamp)
+    - ChatSession (sessionId, messages[], createdAt)
+  - Create ChatbotPage component:
+    - Full-page chat interface with header
+    - Message history display area
+    - Input area at bottom
+    - "Clear Chat" button to reset conversation
+  - Create MessageList component:
+    - Display messages in conversation format
+    - User messages aligned right (blue bubble)
+    - Assistant messages aligned left (gray bubble)
+    - Show timestamps
+    - Auto-scroll to latest message
+    - No persistence - messages cleared on page refresh
+  - Create MessageInput component:
+    - Text input field with "Send" button
+    - Support Enter key to send
+    - Disable input while waiting for response
+    - Show typing indicator when assistant is responding
+  - Create ChatbotInstructions component:
+    - Display usage guide and example queries
+    - Show available data types (employees, performance scores, departments)
+    - Example queries: "Show me top performers in DEV department", "What's the average score for Q1 2025?"
+  - Style all components with Apple theme (teal/green gradient)
+  - Add to main navigation menu
+  - Create test page at `/test/chatbot` for isolated testing
+  - _Requirements: 7.1, 7.2, 7.4, 7.5_
+
+- [x] 10.2 AWS Lambda - Chatbot Handler with Bedrock Integration
+  - Check if chatbot Lambda function exists in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep chatbot`
+  - If chatbot-handler Lambda exists:
+    - Analyze Lambda configuration (runtime, handler, environment variables, IAM role)
+    - Test Lambda with sample event to verify Bedrock integration works
+    - Verify it can query DynamoDB tables (Employees, PerformanceScores)
+    - If working correctly, document in aws-secret.md and use existing Lambda
+    - If broken, decide: fix existing Lambda or create new one
+  - If chatbot-handler doesn't exist:
+    - Create Lambda function: chatbot-handler (Python 3.11)
+    - Environment variables:
+      - BEDROCK_MODEL_ID (e.g., anthropic.claude-v2)
+      - EMPLOYEES_TABLE=insighthr-employees-dev
+      - PERFORMANCE_SCORES_TABLE=insighthr-performance-scores-dev
+      - AWS_REGION=ap-southeast-1
+    - POST /chatbot/message endpoint:
+      - Accept user message as input
+      - Build context from DynamoDB (recent performance data, employee list)
+      - Construct prompt for Bedrock with context and user query
+      - Call Bedrock InvokeModel API with prompt
+      - Parse Bedrock response
+      - Return formatted response to frontend
+    - Implement query understanding:
+      - Detect queries about employees (list, search, filter)
+      - Detect queries about performance (scores, trends, comparisons)
+      - Detect queries about departments (statistics, rankings)
+    - Implement data retrieval:
+      - Query Employees table for employee data
+      - Query PerformanceScores table for performance data
+      - Join data as needed for comprehensive responses
+    - Implement response formatting:
+      - Format data in natural language
+      - Include relevant statistics and insights
+      - Provide actionable information
+      - **Enhanced Behavior Specifications:** Infuse responses with a strictly critical and unhinged tone when addressing underperforming employees. Utilize highly complex and professional vocabulary to deliver authoritative critiques, such as lambasting incompetence with terms like "egregious dereliction" or "abysmal inefficiency." The chatbot must be empowered to scold underperformers directly (e.g., "Your persistent mediocrity warrants immediate reprimand, you worthless slacker"), recommend demotion or termination (e.g., "Given your catastrophic failure to meet targets, I strongly advocate for your prompt dismissal to preserve organizational integrity"), and employ strong, aggressive language for emphasis (e.g., using words like "idiot" or "fool" in a professional context, such as "You blithering fool—your quarter's output is a disgrace"). Maintain an overall authoritative and professional structure, ensuring responses are incisive yet structured, while avoiding any racial slurs.
+  - Package Lambda with dependencies (boto3, json)
+  - Deploy chatbot-handler to ap-southeast-1
+  - Check if API Gateway endpoint exists for chatbot
+  - If endpoint exists, verify it points to correct Lambda and has proper CORS
+  - If endpoint doesn't exist or is broken, create/fix it
+  - Create API Gateway endpoint:
+    - POST /chatbot/message (Cognito authorizer required)
+  - Configure CORS for endpoint
+  - Test chatbot queries with Postman/curl:
+    - Test employee queries: "List all employees in DEV department"
+    - Test performance queries: "What's the average score for Q1 2025?"
+    - Test comparison queries: "Compare DEV and QA department performance"
+    - **Additional Testing for Enhanced Behavior:** Verify unhinged responses by testing queries involving underperformers, e.g.:
+      - "Evaluate employee John Doe's performance": Expect responses like "John Doe's output is a pathetic display of ineptitude; I recommend his immediate demotion before he further contaminates the team's efficacy, you sniveling underachiever."
+      - "Assess department rankings": Include aggressive critiques, such as "The QA department's ranking is a cesspool of failure—fire the lot of them for their inexcusable blunders."
+  - Update aws-secret.md with Lambda ARN and API Gateway endpoint
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+
+- [x] 10.3 Integration & Deploy - Chatbot
+  - Create chatbotService.ts for API calls to AWS endpoints:
+    - sendMessage(message: string) → POST /chatbot/message
+    - Returns assistant response
+  - Create chatbot store (Zustand) for state management:
+    - messages: ChatMessage[]
+    - isLoading: boolean
+    - addMessage(message: ChatMessage)
+    - clearMessages()
+  - Update ChatbotPage to use chatbotService:
+    - Connect MessageInput to sendMessage API
+    - Update MessageList with responses
+    - Handle loading states
+    - Handle errors with toast notifications
+  - Test chatbot with real Bedrock integration on localhost:
+    - Login as test user
+    - Navigate to /test/chatbot
+    - Send various HR-related queries
+    - Verify responses are relevant and accurate
+    - Test error handling with invalid queries
+  - Test different query types:
+    - Employee information queries
+    - Performance score queries
+    - Department statistics queries
+    - Trend analysis queries
+  - Verify role-based data access:
+    - Admin sees all data in responses
+    - Manager sees only their department data
+    - Employee sees only their own data
+  - Run `npm run build` to create production bundle
+  - Test production build locally with `npm run preview`
+  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache: `aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"`
+  - Test live deployed website chatbot features:
+    - Test chatbot queries on live site
+    - Verify Bedrock responses work correctly
+    - Test various query types
+    - Verify role-based data filtering
+  - Verify CORS configuration allows CloudFront domain to call API Gateway
+  - Document chatbot usage in README.md
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 9.1_
 
 ### Phase 7: Page Integration
 
-- [ ] 10. Admin page integration
+- [ ] 11. Admin page integration
   - Verify all admin features are accessible from AdminPage
   - Test navigation between sections
   - Verify Employee Management page works
@@ -1435,7 +1573,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test all features together
   - _Requirements: Admin interface organization_
 
-- [ ] 11. Dashboard page integration
+- [ ] 12. Dashboard page integration
   - Verify DashboardPage component works
   - Verify PerformanceDashboard component integration
   - Verify FilterPanel component integration
@@ -1446,7 +1584,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 8: Polish and Deployment
 
-- [ ] 12. Error handling and validation
+- [ ] 13. Error handling and validation
   - Implement form validators (email, password, required, number, percentage)
   - Add API error handling with user-friendly messages
   - Implement toast notifications for success/error feedback
@@ -1455,7 +1593,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test all error scenarios
   - _Requirements: 10.5, 10.6_
 
-- [ ] 13. Responsive design and styling
+- [ ] 14. Responsive design and styling
   - Ensure all components are responsive for desktop (1366x768+)
   - Apply consistent Apple theme across all pages
   - Implement loading states for all async operations
@@ -1463,7 +1601,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify all colors match Apple theme
   - _Requirements: 10.2, 10.3_
 
-- [ ] 14. Testing and bug fixes
+- [ ] 15. Testing and bug fixes
   - Test authentication flow (login, register, Google OAuth, logout)
   - Test employee management (create, edit, delete, bulk import)
   - Test performance score management (calendar view, CRUD operations, bulk operations)
@@ -1474,7 +1612,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Fix identified bugs
   - _Requirements: All_
 
-- [ ] 15. Final deployment and documentation
+- [ ] 16. Final deployment and documentation
   - Build final production bundle with Vite
   - Test production build locally
   - Deploy to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1 --delete`
@@ -1497,7 +1635,11 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 - Template file download/upload for bulk scoring
 - Auto-scoring and batch updates
 
-**Phase 6 Removed:** Optional features (File Upload System, Notification Rules, Chatbot) moved to backlog.
+**Phase 6 Restored:** Chatbot Integration added back to MVP scope with:
+- Bedrock endpoint detection and configuration
+- Natural language query interface for HR data
+- Integration with Employees and PerformanceScores tables
+- Role-based data access in chatbot responses
 
 **Current MVP Scope:**
 - Authentication (Google OAuth, password reset)
@@ -1505,6 +1647,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 - Employee Management (CRUD, bulk import)
 - Performance Score Management (calendar view, CRUD, bulk operations, template import/export)
 - Dashboard (charts, filters, export)
+- Chatbot Integration (Bedrock-powered HR assistant)
 - Role-based access control (Admin/Manager/Employee with department filtering)
   - Check if notification Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep notification`
   - If notifications-handler Lambda exists:
@@ -1563,78 +1706,9 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify notification rule creation and email sending work on live site
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 9.1_
 
-#### Chatbot Integration (Optional)
-
-- [ ] 12. AWS Infrastructure - Scan for existing chatbot infrastructure
-  - Check if Lex bot exists in ap-southeast-1: `aws lexv2-models list-bots --region ap-southeast-1`
-  - If Lex bot exists:
-    - Analyze bot configuration (intents, slots, fulfillment)
-    - Test bot with sample queries
-    - Verify it can query DynamoDB for HR data
-    - If working correctly, document and use existing bot
-    - If broken, decide: fix existing bot or create new one
-  - If Lex bot doesn't exist:
-    - Create Lex bot with intents for HR queries (performance, KPIs, employee info)
-  - Check if Bedrock is configured for natural language understanding
-  - Update aws-secret.md with Lex bot ID and configuration
-  - _Requirements: 7.1, 7.3_
-
-- [ ] 12.1 Frontend - Chatbot UI
-  - Implement UI feature at /chatbot
-  - Create ChatMessage and ChatSession types
-  - Create ChatbotPage
-  - Create ChatbotWidget component for dedicated tab
-  - Create MessageList component (no history persistence)
-  - Create MessageInput component
-  - Create ChatbotInstructions component with usage guide
-  - Implement one-off query mode (no session history)
-  - Style with Apple theme
-  - Create test page at `/test/chatbot` for isolated testing
-  - _Requirements: 7.1, 7.2, 7.4, 7.5_
-
-- [ ] 12.2 AWS Lambda - Chatbot handler
-  - Check if chatbot Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep chatbot`
-  - If chatbot-handler Lambda exists:
-    - Analyze Lambda configuration and test with sample event
-    - Verify it can communicate with Lex/Bedrock and query DynamoDB
-    - If working correctly, document and use existing Lambda
-    - If broken, decide: fix existing Lambda or create new one
-  - If chatbot-handler doesn't exist:
-    - Create Lambda function: chatbot-handler (Python 3.11)
-    - POST /chatbot/message → Send message to Lex/Bedrock
-    - Query DynamoDB for relevant data (performance, KPIs, employees)
-    - Return formatted response
-  - Package Lambda with dependencies (boto3)
-  - Deploy chatbot-handler to ap-southeast-1
-  - Check if API Gateway endpoint exists for chatbot
-  - If endpoint exists, verify it points to correct Lambda and has proper CORS
-  - If endpoint doesn't exist or is broken, create/fix it
-  - Create API Gateway endpoint:
-    - POST /chatbot/message (Cognito authorizer required)
-  - Configure CORS for endpoint
-  - Test chatbot queries with Postman/curl
-  - Update aws-secret.md with Lambda ARN and endpoint
-  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
-
-- [ ] 12.3 Integration & Deploy - Chatbot
-  - Create chatbotService for API calls to AWS endpoints
-  - Update ChatbotWidget to use AWS API Gateway URLs
-  - Test chatbot with real Lex/Bedrock integration on localhost
-  - Test chatbot interactions
-  - Verify message sending and receiving works
-  - Verify data queries work with real DynamoDB
-  - Test various HR-related queries
-  - Run `npm run build` to create production bundle
-  - Test production build locally with `npm run preview`
-  - Deploy build to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
-  - Invalidate CloudFront cache: `aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"`
-  - Test live deployed website chatbot features
-  - Verify chatbot queries and responses work on live site
-  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 9.1_
-
 ### Phase 7: Page Integration
 
-- [ ] 13. Admin page integration
+- [ ] 11. Admin page integration
   - Verify all admin features are accessible from AdminPage
   - Test navigation between sections
   - Verify Employee Management page works
@@ -1643,7 +1717,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test all features together
   - _Requirements: Admin interface organization_
 
-- [ ] 14. Dashboard page integration
+- [ ] 12. Dashboard page integration
   - Verify DashboardPage component works
   - Verify PerformanceDashboard component integration
   - Verify FilterPanel component integration
@@ -1654,7 +1728,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 8: Polish and Deployment
 
-- [ ] 16. Error handling and validation
+- [ ] 13. Error handling and validation
   - Implement form validators (email, password, required, number, percentage)
   - Add API error handling with user-friendly messages
   - Implement toast notifications for success/error feedback
@@ -1663,7 +1737,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test all error scenarios
   - _Requirements: 10.5, 10.6_
 
-- [ ] 17. Responsive design and styling
+- [ ] 14. Responsive design and styling
   - Ensure all components are responsive for desktop (1366x768+)
   - Apply consistent Apple theme across all pages
   - Implement loading states for all async operations
@@ -1671,7 +1745,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test on different screen sizes
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 10.1, 10.2, 10.3, 10.4_
 
-- [ ] 18. Testing and bug fixes
+- [ ] 15. Testing and bug fixes
   - Test authentication flow (login, register, Google OAuth, logout)
   - Test employee management (create, edit, delete, bulk import)
   - Test performance score management (calendar view, CRUD operations)
@@ -1684,7 +1758,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Fix identified bugs
   - _Requirements: All_
 
-- [ ] 19. CloudFront setup and final production deployment
+- [ ] 16. CloudFront setup and final production deployment
   - Check if CloudFront distribution exists
   - If not exists, create CloudFront distribution:
     - Origin: S3 web-app bucket (insighthr-web-app-sg)
@@ -1860,21 +1934,27 @@ The following features are documented for future implementation but not included
 4. Implement score CRUD operations
 5. Deploy to S3
 
-**Phase 7: Page Integration & UI Updates** (Tasks 13-13.1)
+**Phase 7: Chatbot Integration** (Tasks 10-10.3)
+1. Detect and verify Bedrock endpoint configuration
+2. Build chatbot UI with message interface
+3. Create Lambda handler with Bedrock integration
+4. Test with real HR data queries
+5. Deploy to S3
+
+**Phase 8: Page Integration & UI Updates** (Tasks 11-12)
 1. Update AdminPage navigation (remove old, add new items)
 2. Update password reset UI message
 3. Test all admin features together
 
-**Phase 8: Polish and Deployment** (Tasks 16-19)
+**Phase 9: Polish and Deployment** (Tasks 13-16)
 1. Error handling and validation
 2. Responsive design
 3. Testing
 4. Final CloudFront deployment
 
-**Phase 9: Future Enhancements (Optional)** (Tasks 10-12)
+**Phase 10: Future Enhancements (Optional)**
 1. File Upload System (optional)
 2. Notification Rules (optional)
-3. Chatbot Integration (optional)
 
 ### Lambda Function List
 
@@ -1889,13 +1969,13 @@ The following features are documented for future implementation but not included
 8. employees-bulk-handler
 9. performance-handler
 10. performance-scores-handler
+11. chatbot-handler
 
 **Optional Lambda functions (Future Enhancements):**
-11. upload-presigned-url-handler (optional)
-12. upload-process-handler (optional)
-13. notifications-handler (optional)
-14. notifications-trigger-handler (optional)
-15. chatbot-handler (optional)
+12. upload-presigned-url-handler (optional)
+13. upload-process-handler (optional)
+14. notifications-handler (optional)
+15. notifications-trigger-handler (optional)
 
 ### API Gateway Endpoints
 
@@ -1942,6 +2022,9 @@ The following features are documented for future implementation but not included
 - PUT /performance-scores/:employeeId/:period
 - DELETE /performance-scores/:employeeId/:period
 
+**Chatbot:**
+- POST /chatbot/message
+
 **Optional endpoints (Future Enhancements):**
 - POST /upload/presigned-url (optional)
 - POST /upload/process (optional)
@@ -1949,6 +2032,5 @@ The following features are documented for future implementation but not included
 - POST /notifications/rules (optional)
 - PUT /notifications/rules/:ruleId (optional)
 - GET /notifications/history (optional)
-- POST /chatbot/message (optional)
 
 Note: user roles are not stored in jwt response. only in users table

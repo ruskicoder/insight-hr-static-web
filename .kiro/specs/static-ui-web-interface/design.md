@@ -437,6 +437,8 @@ src/
 - Integration with Lex/Bedrock via API Gateway
 - Scope: Data queries only (e.g., "What's the average score for Engineering?")
 - No navigation help for MVP
+- Rejects unrelated questions: Politely declines questions about topics outside HR data (employees, performance, departments)
+- Example rejection: "I'm an HR assistant focused on employee and performance data. I can help you with questions about employees, performance scores, departments, and trends. Please ask an HR-related question."
 
 
 ## Data Models
