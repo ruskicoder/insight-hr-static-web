@@ -1562,6 +1562,108 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document chatbot usage in README.md
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 9.1_
 
+### Phase 6.5: Attendance Management (Daily Check-in/Check-out System)
+
+- [ ] 10.1 AWS Infrastructure & Lambda - Attendance system setup
+  - **Check existing attendance infrastructure:**
+    - Check if attendance tables exist: `aws dynamodb list-tables --region ap-southeast-1 | grep -i attendance`, check all existing tables with format similar to "employeeId, date, checkIn, checkOut, paidLeave, position, reason, status"
+    - If attendance_history or similar table exists:
+      - Analyze schema (PK, SK, GSIs, attributes)
+      - Verify fields: employeeId, date, checkIn, checkOut, paidLeave, position, reason, status
+      - Check GSIs for date-based and department queries
+      - If schema matches, document and use existing table
+      - If incomplete, decide: migrate or extend
+    - If no attendance table exists, create: insighthr-attendance-history-dev
+      - PK=employeeId, SK=date (YYYY-MM-DD)
+      - GSI-1: date-index (PK=date) for daily queries
+      - GSI-2: department-date-index (PK=department, SK=date) for manager queries
+      - Attributes: employeeId, date, checkIn, checkOut, paidLeave, position, reason, status, department, points360, createdAt, updatedAt
+  - **Check existing Lambda functions:**
+    - Check if attendance Lambdas exist: `aws lambda list-functions --region ap-southeast-1 | grep attendance`
+    - If attendance-handler exists: analyze, test, document or fix
+    - If doesn't exist, create Lambda: attendance-handler (Python 3.11)
+      - Environment variables: ATTENDANCE_TABLE, EMPLOYEES_TABLE, AWS_REGION
+      - Endpoints:
+        - GET /attendance → List records with filters
+        - GET /attendance/:employeeId/:date → Get single record
+        - GET /attendance/:employeeId/status → Check ongoing session
+        - POST /attendance/check-in → Public check-in (no auth)
+        - POST /attendance/check-out → Public check-out (no auth)
+        - POST /attendance → Manual create (Admin/Manager)
+        - PUT /attendance/:employeeId/:date → Update (Admin/Manager)
+        - DELETE /attendance/:employeeId/:date → Delete (Admin)
+        - POST /attendance/bulk → Bulk import (Admin/Manager)
+      - Status calculation logic:
+        - "work": Check-in 6:00-9:00 AM, check-out before 17:00
+        - "late": Check-in after 9:00 AM
+        - "absent": No check-in/out by 23:59
+        - "off": Paid leave flag true
+        - "OT": Check-out after 17:00 (1.5x points/hour)
+        - "early_bird": Check-in before 6:00 AM (1.25x points/hour until 8:00)
+      - 360 points calculation: base 10 points/hour
+      - Validation: no double check-in, must check-in before check-out
+      - Role-based auth: Admin (all), Manager (department), Employee (none)
+    - Create Lambda: attendance-auto-absence (Python 3.11)
+      - Triggered by EventBridge daily at 23:59
+      - Mark incomplete records as "absent"
+      - Create "absent" records for missing check-ins
+  - **Deploy and configure:**
+    - Deploy attendance-handler to ap-southeast-1
+    - Deploy attendance-auto-absence to ap-southeast-1
+    - Create EventBridge rule for daily 23:59 trigger
+    - Create API Gateway endpoints (public check-in/out, protected management)
+    - Configure CORS
+    - Test with Postman/curl
+  - Update aws-secret.md with Lambda ARNs and endpoints
+  - _Requirements: Attendance tracking backend, auto-absence, 360 points_
+
+- [ ] 10.2 Frontend - Attendance Management UI and Public Check-in
+  - **Admin/Manager Attendance Management UI** at `/admin/attendance`:
+    - Create Attendance types (attendance.types.ts): AttendanceRecord, CheckInRequest, CheckOutRequest, AttendanceFilters, AttendanceStats
+    - Create AttendanceManagement container with tabs: Calendar View, Records List, Bulk Operations
+    - Create AttendanceCalendarView: weekly grid (employees × days), color-coded status (green=work, yellow=late, red=absent, blue=off, purple=OT, orange=early_bird)
+    - Create AttendanceDetailModal: view/edit check-in/out times, status, 360 points, paid leave, reason
+    - Create AttendanceRecordsList: table with sortable columns, pagination, edit/delete actions
+    - Create AttendanceFilters: department, date range, employee search, status filter
+    - Create AttendanceBulkOperations: CSV upload, template download, manual bulk add, preview
+    - Create AttendanceForm: employee selector, date/time pickers, paid leave, reason
+    - Role-based access: Admin (all), Manager (department only), Employee (no access)
+    - Create test page at `/test/attendance`
+  - **Public Check-in/Check-out UI** at `/check-in` (no auth):
+    - Create CheckInCheckOut component
+    - Employee ID input + "Check Status" button
+    - If no session: Show "Check In" button → success message with status (Checked In/Early Bird/Late)
+    - If ongoing session: Show "Check Out" button → success message with status (Checked Out/OT), hours worked, 360 points
+    - If completed: Show summary (check-in/out times, hours, points)
+    - Error handling: invalid ID, double check-in, check-out without check-in
+    - Large buttons for kiosk/mobile, display current date/time
+  - Style all with Apple theme (teal/green gradient)
+  - _Requirements: Attendance management UI, public check-in/out, role-based access_
+
+- [ ] 10.3 Integration & Deploy - Attendance management
+  - Create attendanceService.ts for API calls: getAttendance, getAttendanceRecord, checkStatus, checkIn, checkOut, createAttendance, updateAttendance, deleteAttendance, bulkImport
+  - Create attendance store (Zustand): attendanceRecords, filters, isLoading, currentEmployee
+  - Update components to use AWS API Gateway URLs
+  - **Test on localhost with real DynamoDB:**
+    - Admin: Navigate to /test/attendance, test calendar view, create/edit/delete records, filtering, bulk import, color coding
+    - Manager: Verify department-only access
+    - Employee: Verify redirect from /admin/attendance
+    - Public: Navigate to /check-in, test check-in flow (work/late/early_bird), check-out flow (work/OT), 360 points display, error handling
+  - **Test auto-absence marking:**
+    - Manually trigger attendance-auto-absence Lambda
+    - Verify incomplete records marked as "absent"
+  - **Deploy to production:**
+    - Run `npm run build` and test with `npm run preview`
+    - Deploy to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+    - Invalidate CloudFront cache
+    - Test admin attendance management on live site
+    - Test public check-in/check-out on live site
+    - Verify 360 points calculation and auto-absence marking
+    - Verify CORS configuration
+  - Document attendance management in README.md
+  - _Requirements: Attendance deployment, public check-in/out, 360 points integration_
+
+
 ### Phase 7: Page Integration
 
 - [ ] 11. Admin page integration
@@ -1648,6 +1750,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 - Performance Score Management (calendar view, CRUD, bulk operations, template import/export)
 - Dashboard (charts, filters, export)
 - Chatbot Integration (Bedrock-powered HR assistant)
+- **Attendance Management (NEW)** (daily check-in/check-out, calendar view, auto-absence marking, 360 points calculation, OT/early bird bonuses)
 - Role-based access control (Admin/Manager/Employee with department filtering)
   - Check if notification Lambda functions exist in ap-southeast-1: `aws lambda list-functions --region ap-southeast-1 | grep notification`
   - If notifications-handler Lambda exists:
@@ -1970,6 +2073,8 @@ The following features are documented for future implementation but not included
 9. performance-handler
 10. performance-scores-handler
 11. chatbot-handler
+12. **attendance-handler (NEW)**
+13. **attendance-auto-absence (NEW)** - Scheduled daily at 23:59
 
 **Optional Lambda functions (Future Enhancements):**
 12. upload-presigned-url-handler (optional)
@@ -2024,6 +2129,17 @@ The following features are documented for future implementation but not included
 
 **Chatbot:**
 - POST /chatbot/message
+
+**Attendance Management (NEW):**
+- GET /attendance (Admin/Manager only)
+- GET /attendance/:employeeId/:date
+- GET /attendance/:employeeId/status (Public, no auth)
+- POST /attendance/check-in (Public, no auth)
+- POST /attendance/check-out (Public, no auth)
+- POST /attendance (Admin/Manager only)
+- PUT /attendance/:employeeId/:date (Admin/Manager only)
+- DELETE /attendance/:employeeId/:date (Admin only)
+- POST /attendance/bulk (Admin/Manager only)
 
 **Optional endpoints (Future Enhancements):**
 - POST /upload/presigned-url (optional)
