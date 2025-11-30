@@ -1,9 +1,12 @@
 import json
 import boto3
 import os
-from datetime import datetime, time
+from datetime import datetime, time, timezone, timedelta
 from decimal import Decimal
 from boto3.dynamodb.conditions import Key, Attr
+
+# Application timezone: UTC+7 (Bangkok/Jakarta)
+APP_TIMEZONE = timezone(timedelta(hours=7))
 
 dynamodb = boto3.resource('dynamodb')
 lambda_client = boto3.client('lambda')
@@ -77,8 +80,9 @@ def handle_check_in(event):
         if not employee:
             return response(404, {'error': 'Employee not found'})
         
-        # Check for existing check-in today
-        today = datetime.now().strftime('%Y-%m-%d')
+        # Check for existing check-in today (use app timezone)
+        now = datetime.now(APP_TIMEZONE)
+        today = now.strftime('%Y-%m-%d')
         existing = get_attendance_record(employee_id, today)
         
         if existing and existing.get('checkIn'):
@@ -88,7 +92,6 @@ def handle_check_in(event):
             })
         
         # Create check-in record
-        now = datetime.now()
         check_in_time = now.strftime('%H:%M')
         
         # Determine status based on check-in time
@@ -106,8 +109,8 @@ def handle_check_in(event):
             'status': status,
             'points360': Decimal(str(points360)),
             'paidLeave': False,
-            'createdAt': datetime.utcnow().isoformat(),
-            'updatedAt': datetime.utcnow().isoformat()
+            'createdAt': now.isoformat(),
+            'updatedAt': now.isoformat()
         }
         
         attendance_table.put_item(Item=record)
@@ -142,8 +145,9 @@ def handle_check_out(event):
         if not employee:
             return response(404, {'error': 'Employee not found'})
         
-        # Check for existing check-in today
-        today = datetime.now().strftime('%Y-%m-%d')
+        # Check for existing check-in today (use app timezone)
+        now = datetime.now(APP_TIMEZONE)
+        today = now.strftime('%Y-%m-%d')
         existing = get_attendance_record(employee_id, today)
         
         if not existing or not existing.get('checkIn'):
@@ -156,7 +160,6 @@ def handle_check_out(event):
             })
         
         # Update with check-out time
-        now = datetime.now()
         check_out_time = now.strftime('%H:%M')
         check_in_time = existing.get('checkIn')
         
@@ -174,7 +177,7 @@ def handle_check_out(event):
                 ':co': check_out_time,
                 ':status': status,
                 ':points': Decimal(str(points360)),
-                ':updated': datetime.utcnow().isoformat()
+                ':updated': now.isoformat()
             }
         )
         
@@ -207,8 +210,9 @@ def handle_check_status(path_parameters):
         if not employee:
             return response(404, {'error': 'Employee not found'})
         
-        # Check today's record
-        today = datetime.now().strftime('%Y-%m-%d')
+        # Check today's record (use app timezone)
+        now = datetime.now(APP_TIMEZONE)
+        today = now.strftime('%Y-%m-%d')
         record = get_attendance_record(employee_id, today)
         
         if record and record.get('checkIn') and not record.get('checkOut'):
@@ -366,8 +370,8 @@ def handle_create_attendance(event, user_role, user_department):
             'status': status,
             'points360': Decimal(str(points360)),
             'paidLeave': paid_leave,
-            'createdAt': datetime.utcnow().isoformat(),
-            'updatedAt': datetime.utcnow().isoformat()
+            'createdAt': datetime.now(APP_TIMEZONE).isoformat(),
+            'updatedAt': datetime.now(APP_TIMEZONE).isoformat()
         }
         
         if check_in:
@@ -451,7 +455,7 @@ def handle_update_attendance(event, path_params, user_role, user_department):
         
         # Always update updatedAt
         update_parts.append('updatedAt = :updated')
-        expression_values[':updated'] = datetime.utcnow().isoformat()
+        expression_values[':updated'] = datetime.now(APP_TIMEZONE).isoformat()
         
         if not update_parts:
             return response(400, {'error': 'No fields to update'})
@@ -575,8 +579,8 @@ def handle_bulk_import(event, user_role, user_department):
                     'status': status,
                     'points360': Decimal(str(points360)),
                     'paidLeave': paid_leave,
-                    'createdAt': datetime.utcnow().isoformat(),
-                    'updatedAt': datetime.utcnow().isoformat()
+                    'createdAt': datetime.now(APP_TIMEZONE).isoformat(),
+                    'updatedAt': datetime.now(APP_TIMEZONE).isoformat()
                 }
                 
                 if check_in:
