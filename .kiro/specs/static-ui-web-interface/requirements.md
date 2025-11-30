@@ -32,6 +32,9 @@ This document describes the requirements for developing the Static UI Web Interf
 - **File_Upload_Component**: Thành phần cho phép tải lên file CSV/Excel
 - **Column_Mapping_Interface**: Giao diện ánh xạ cột dữ liệu với KPI
 - **Chatbot_Widget**: Widget tích hợp chatbot HR Assistant
+- **Attendance_System**: Hệ thống quản lý chấm công và điểm danh hàng ngày
+- **Attendance_Record**: Bản ghi chấm công chứa thông tin check-in, check-out, trạng thái
+- **360_Score**: Điểm đánh giá 360 độ được tính từ attendance và performance
 
 ## Requirements
 
@@ -177,3 +180,29 @@ This document describes the requirements for developing the Static UI Web Interf
 4. THE Static_Web_Interface SHALL use environment variables for API Gateway endpoints and configuration values
 5. THE Static_Web_Interface SHALL include code documentation and follow consistent TypeScript coding standards
 6. THE Static_Web_Interface SHALL be structured to facilitate easy integration with Python Lambda functions via API Gateway
+
+### Requirement 12
+
+**User Story:** As an HR Admin or Manager, I want to manage employee attendance records with daily check-in/check-out tracking, so that I can monitor attendance patterns and calculate 360 feedback scores based on attendance performance
+
+#### Acceptance Criteria
+
+1. THE Attendance_System SHALL provide a public check-in/check-out interface accessible without authentication at '/check-in' route
+2. WHEN an employee checks in, THE Attendance_System SHALL validate that no ongoing check-in session exists for that employee
+3. WHEN an employee checks out, THE Attendance_System SHALL validate that an active check-in session exists for that employee
+4. THE Attendance_System SHALL automatically mark attendance as "absent" WHEN an employee fails to check out before 23:59 on the same day
+5. WHEN an employee checks in before 06:00, THE Attendance_System SHALL mark the status as "early_bird" and award 1.25x points per hour until 08:00 for 360 score calculation
+6. WHEN an employee checks in after 09:00 but before 17:00, THE Attendance_System SHALL mark the status as "late"
+7. WHEN an employee checks out after 17:00, THE Attendance_System SHALL mark the status as "OT" (overtime) and award 1.5x points per hour for 360 score calculation
+8. THE Attendance_System SHALL support status values: "work" (normal attendance), "late" (check-in after 09:00), "absent" (no check-in/out), "off" (approved day off), "early_bird" (check-in before 06:00), and "OT" (overtime)
+9. THE Admin_Panel SHALL provide an attendance management interface with weekly calendar view showing all employees and their daily attendance status
+10. THE Admin_Panel SHALL display attendance records with color-coded status indicators: green for "work", yellow for "late", red for "absent", blue for "off", purple for "OT", and orange for "early_bird"
+11. WHERE the user is an Admin, THE Attendance_System SHALL allow viewing and managing attendance for all employees
+12. WHERE the user is a Manager, THE Attendance_System SHALL allow viewing and managing attendance only for employees in their department
+13. WHERE the user is an Employee, THE Attendance_System SHALL NOT provide access to the attendance management interface
+14. THE Attendance_System SHALL provide bulk import functionality for attendance records via CSV file upload
+15. THE Attendance_System SHALL allow manual creation, editing, and deletion of attendance records with fields: employeeId, date, checkIn, checkOut, paidLeave, position, reason, status, department, and points360
+16. THE Attendance_System SHALL calculate daily 360 points based on attendance patterns including early bird bonuses, overtime bonuses, and late/absent penalties
+17. THE Attendance_System SHALL calculate quarterly average of daily 360 points and update the feedback_360 score in the PerformanceScores table for each employee
+18. WHEN displaying check-in/check-out success, THE Attendance_System SHALL show employee name, date, status, and any special conditions (OT/Early bird/Checked in)
+19. THE Attendance_System SHALL prevent afternoon check-in WHEN morning check-in is missing and the day is not marked as "off"

@@ -32,7 +32,9 @@ Each major feature follows this development order:
   - `/test/users` - User management testing
   - `/test/notifications` - Notification rules testing
   - `/test/chatbot` - Chatbot testing
+  - `/test/attendance` - Attendance management testing
 - **Production Routes**: Main app at `localhost:5173/*` (no `/test` prefix)
+- **Public Routes**: `/check-in` - Public check-in/check-out interface (no authentication required)
 - **Stub API**: Local Express.js server on `localhost:4000` mimicking AWS Lambda responses
 - **Test Folder**: Separate `/test` folder for demo components and test pages
 
@@ -61,7 +63,7 @@ Each major feature follows this development order:
 │                    API Gateway (REST API)                    │
 │  - /auth/*      - /kpis/*      - /formulas/*                │
 │  - /users/*     - /upload/*    - /performance/*             │
-│  - /chatbot/*   - /notifications/*                          │
+│  - /chatbot/*   - /notifications/*  - /attendance/*         │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
@@ -70,7 +72,9 @@ Each major feature follows this development order:
 │  - Authentication Handler    - KPI Manager                   │
 │  - Formula Calculator        - File Processor                │
 │  - Data Query Handler        - Notification Manager          │
-│  - Chatbot Handler                                           │
+│  - Chatbot Handler           - Attendance Handler            │
+│  - Attendance Auto-Absence (EventBridge daily 23:59)         │
+│  - Attendance Quarterly Aggregator (EventBridge quarterly)   │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
@@ -79,6 +83,7 @@ Each major feature follows this development order:
 │  - Users Table          - KPIs Table                         │
 │  - Formulas Table       - PerformanceScores Table            │
 │  - DataTables Table     - Notifications Table                │
+│  - AttendanceHistory Table                                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -215,6 +220,97 @@ This architecture ensures:
 - ✅ Graceful degradation for MVP
 - ✅ Cost-effective Lambda invocations
 
+#### Attendance Lambda Architecture
+
+The attendance system uses multiple Lambda functions for different responsibilities:
+
+```
+┌────────────────────────────────────────┐
+│  Attendance Handler Lambda             │
+│  (attendance-handler)                  │
+│                                        │
+│  Endpoints:                            │
+│  - GET /attendance (list with filters) │
+│  - POST /attendance/check-in (public)  │
+│  - POST /attendance/check-out (public) │
+│  - POST /attendance (manual create)    │
+│  - PUT /attendance/:id (update)        │
+│  - DELETE /attendance/:id (delete)     │
+│  - POST /attendance/bulk (bulk import) │
+│                                        │
+│  Logic:                                │
+│  1. Validate check-in/out rules        │
+│  2. Calculate daily 360 points         │
+│  3. Determine status (work/late/OT)    │
+│  4. Write to AttendanceHistory table   │
+└────────────────────────────────────────┘
+
+┌────────────────────────────────────────┐
+│  Attendance Auto-Absence Lambda        │
+│  (attendance-auto-absence)             │
+│  [Triggered by EventBridge at 23:59]   │
+│                                        │
+│  Logic:                                │
+│  1. Query today's attendance records   │
+│  2. Find incomplete records            │
+│     (check-in without check-out)       │
+│  3. Mark as "absent" status            │
+│  4. Set points360 = 0                  │
+│  5. Create absent records for          │
+│     employees with no check-in         │
+└────────────────────────────────────────┘
+
+┌────────────────────────────────────────┐
+│  Attendance Quarterly Aggregator       │
+│  (attendance-quarterly-aggregator)     │
+│  [Triggered by EventBridge quarterly]  │
+│                                        │
+│  Logic:                                │
+│  1. Get all employees                  │
+│  2. For each employee:                 │
+│     a. Query attendance for quarter    │
+│     b. Calculate AVG(points360)        │
+│     c. Update PerformanceScores table  │
+│        feedback_360 = avg_points       │
+│  3. Log results and send notification  │
+│                                        │
+│  Trigger Schedule:                     │
+│  - End of Q1: March 31, 23:59          │
+│  - End of Q2: June 30, 23:59           │
+│  - End of Q3: September 30, 23:59      │
+│  - End of Q4: December 31, 23:59       │
+└────────────────────────────────────────┘
+         │
+         ↓
+┌────────────────────────────────────────┐
+│  PerformanceScores Table               │
+│  (feedback_360 updated quarterly)      │
+└────────────────────────────────────────┘
+```
+
+**Key Design Decisions:**
+
+1. **Separation of Concerns**:
+   - **Attendance Handler**: Real-time check-in/out operations
+   - **Auto-Absence**: Daily cleanup of incomplete records
+   - **Quarterly Aggregator**: Batch processing for performance scores
+
+2. **EventBridge Triggers**:
+   - Daily trigger at 23:59 for auto-absence marking
+   - Quarterly trigger for aggregating 360 points into performance scores
+   - Reduces manual intervention and ensures consistency
+
+3. **Public Endpoints**:
+   - Check-in/out endpoints are public (no JWT required)
+   - Validates employee exists in Employees table
+   - Prevents duplicate check-ins and invalid check-outs
+
+4. **360 Points Integration**:
+   - Daily points stored in AttendanceHistory
+   - Quarterly average calculated and pushed to PerformanceScores
+   - Maintains separation between attendance and performance data
+   - Allows historical attendance analysis independent of performance
+
 
 ## Components and Interfaces
 
@@ -259,6 +355,16 @@ src/
 │   │   ├── MessageList.tsx
 │   │   ├── MessageInput.tsx
 │   │   └── SuggestedQueries.tsx
+│   ├── attendance/
+│   │   ├── AttendanceManagement.tsx
+│   │   ├── AttendanceCalendarView.tsx
+│   │   ├── AttendanceRecordsList.tsx
+│   │   ├── AttendanceDetailModal.tsx
+│   │   ├── AttendanceFilters.tsx
+│   │   ├── AttendanceBulkOperations.tsx
+│   │   ├── AttendanceForm.tsx
+│   │   ├── CheckInCheckOut.tsx
+│   │   └── AttendanceStats.tsx
 │   ├── profile/
 │   │   ├── ProfileView.tsx
 │   │   ├── ProfileEdit.tsx
@@ -277,6 +383,8 @@ src/
 │   ├── AdminPage.tsx
 │   ├── UploadPage.tsx
 │   ├── ChatbotPage.tsx
+│   ├── AttendancePage.tsx
+│   ├── CheckInPage.tsx
 │   ├── ProfilePage.tsx
 │   └── NotFoundPage.tsx
 ├── services/
@@ -287,11 +395,13 @@ src/
 │   ├── uploadService.ts
 │   ├── performanceService.ts
 │   ├── chatbotService.ts
-│   └── notificationService.ts
+│   ├── notificationService.ts
+│   └── attendanceService.ts
 ├── store/
 │   ├── authStore.ts
 │   ├── kpiStore.ts
 │   ├── performanceStore.ts
+│   ├── attendanceStore.ts
 │   └── uiStore.ts
 ├── types/
 │   ├── auth.types.ts
@@ -299,6 +409,7 @@ src/
 │   ├── formula.types.ts
 │   ├── performance.types.ts
 │   ├── user.types.ts
+│   ├── attendance.types.ts
 │   └── api.types.ts
 ├── utils/
 │   ├── validators.ts
@@ -439,6 +550,85 @@ src/
 - No navigation help for MVP
 - Rejects unrelated questions: Politely declines questions about topics outside HR data (employees, performance, departments)
 - Example rejection: "I'm an HR assistant focused on employee and performance data. I can help you with questions about employees, performance scores, departments, and trends. Please ask an HR-related question."
+
+#### 6. Attendance Components
+
+**AttendanceManagement.tsx**
+- Main container for attendance management (Admin/Manager only)
+- Tabs: Calendar View, Records List, Bulk Operations
+- Role-based access control
+- Integration with attendance API
+
+**AttendanceCalendarView.tsx**
+- Weekly calendar grid showing employees × days
+- Color-coded status indicators:
+  - Green: "work" (normal attendance)
+  - Yellow: "late" (check-in after 09:00)
+  - Red: "absent" (no check-in/out)
+  - Blue: "off" (approved day off)
+  - Purple: "OT" (overtime - check-out after 17:00)
+  - Orange: "early_bird" (check-in before 06:00)
+- Click on cell to view/edit attendance details
+- Navigation between weeks
+- Department filter for managers
+
+**AttendanceRecordsList.tsx**
+- Table view of attendance records
+- Sortable columns: employee, date, check-in, check-out, status, 360 points
+- Pagination support
+- Edit and delete actions
+- Export to CSV
+
+**AttendanceDetailModal.tsx**
+- View/edit single attendance record
+- Fields: employeeId, date, checkIn, checkOut, paidLeave, position, reason, status, department, points360
+- Calculate 360 points based on:
+  - Early bird: 1.25x points/hour (06:00-08:00)
+  - Overtime: 1.5x points/hour (after 17:00)
+  - Late: penalty points
+  - Absent: zero points
+- Save and cancel actions
+
+**AttendanceFilters.tsx**
+- Filter by department (Admin only)
+- Filter by date range
+- Filter by employee (search)
+- Filter by status (work, late, absent, off, OT, early_bird)
+- Clear filters button
+
+**AttendanceBulkOperations.tsx**
+- CSV file upload for bulk import
+- Template download (CSV with all active employees)
+- Manual bulk add interface
+- Preview before import
+- Validation and error reporting
+
+**AttendanceForm.tsx**
+- Create/edit attendance record manually
+- Employee selector dropdown
+- Date picker
+- Time pickers for check-in and check-out
+- Paid leave checkbox
+- Reason text field
+- Status dropdown (auto-calculated but can override)
+- Form validation
+
+**CheckInCheckOut.tsx** (Public interface at `/check-in`)
+- Large, kiosk-friendly interface
+- Employee ID input field
+- Display current date and time
+- Check status: if ongoing session exists, show check-out button; otherwise show check-in button
+- Success message with employee name, date, status
+- Special status indicators: "OT", "Early bird", "Checked in"
+- No authentication required
+- Mobile-responsive for employee phones
+
+**AttendanceStats.tsx**
+- Summary statistics for selected period
+- Total work days, late days, absent days, OT days
+- Average 360 points
+- Attendance rate percentage
+- Charts showing trends
 
 
 ## Data Models
@@ -648,6 +838,97 @@ interface ChatSession {
 }
 ```
 
+#### Attendance Models
+
+```typescript
+interface AttendanceRecord {
+  attendanceId: string;
+  employeeId: string; // Reference to Employee table
+  employeeName: string; // Denormalized for query performance
+  department: string; // Denormalized for filtering
+  position: string; // Job position
+  date: string; // Format: YYYY-MM-DD
+  checkIn: string | null; // Format: HH:MM (24-hour)
+  checkOut: string | null; // Format: HH:MM (24-hour)
+  paidLeave: boolean; // Whether this is a paid leave day
+  reason: string | null; // Reason for absence or leave
+  status: 'work' | 'late' | 'absent' | 'off' | 'OT' | 'early_bird';
+  points360: number; // Calculated 360 feedback points
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CheckInRequest {
+  employeeId: string;
+}
+
+interface CheckOutRequest {
+  employeeId: string;
+}
+
+interface CheckInResponse {
+  success: boolean;
+  message: string;
+  employeeName: string;
+  date: string;
+  checkIn: string;
+  status: string; // "Checked in", "Early bird", "Late"
+}
+
+interface CheckOutResponse {
+  success: boolean;
+  message: string;
+  employeeName: string;
+  date: string;
+  checkOut: string;
+  status: string; // "Checked out", "OT"
+  points360: number;
+}
+
+interface AttendanceFilters {
+  department?: string;
+  startDate?: string;
+  endDate?: string;
+  employeeId?: string;
+  status?: 'work' | 'late' | 'absent' | 'off' | 'OT' | 'early_bird';
+}
+
+interface AttendanceStats {
+  totalDays: number;
+  workDays: number;
+  lateDays: number;
+  absentDays: number;
+  offDays: number;
+  otDays: number;
+  earlyBirdDays: number;
+  attendanceRate: number; // Percentage
+  averagePoints360: number;
+}
+
+interface BulkAttendanceImport {
+  records: Partial<AttendanceRecord>[];
+}
+
+interface BulkImportResult {
+  success: boolean;
+  imported: number;
+  failed: number;
+  errors?: Array<{
+    row: number;
+    employeeId: string;
+    error: string;
+  }>;
+}
+
+interface OngoingSession {
+  hasSession: boolean;
+  employeeId?: string;
+  employeeName?: string;
+  checkIn?: string;
+  date?: string;
+}
+```
+
 
 ### DynamoDB Table Structures
 
@@ -799,6 +1080,65 @@ Attributes:
 - ruleId (String)
 - sentTo (List)
 - status (String)
+```
+
+#### AttendanceHistory Table
+```
+Partition Key: employeeId (String) - Reference to Employees table
+Sort Key: date (String) - Format: YYYY-MM-DD
+Attributes:
+- attendanceId (String) - Unique attendance record identifier
+- employeeId (String) - Reference to Employees table
+- employeeName (String) - Denormalized for query performance
+- department (String) - Denormalized for GSI queries and filtering
+- position (String) - Job position (e.g., "Senior", "Junior", "Lead")
+- date (String) - Date in YYYY-MM-DD format
+- checkIn (String, nullable) - Check-in time in HH:MM format (24-hour)
+- checkOut (String, nullable) - Check-out time in HH:MM format (24-hour)
+- paidLeave (Boolean) - Whether this is a paid leave day
+- reason (String, nullable) - Reason for absence or leave
+- status (String) - "work", "late", "absent", "off", "OT", "early_bird"
+- points360 (Number) - Calculated 360 feedback points based on attendance
+- createdAt (String - ISO 8601)
+- updatedAt (String - ISO 8601)
+
+GSI: date-index
+- Partition Key: date (String)
+- Purpose: Query all employees' attendance for a specific date
+
+GSI: department-date-index
+- Partition Key: department (String)
+- Sort Key: date (String)
+- Purpose: Query department attendance for date ranges (Manager access)
+
+Note: Attendance records are linked to Employees, not Users.
+Query patterns:
+1. Get all attendance for an employee: Query by employeeId
+2. Get employee attendance for specific date: Query by employeeId + date
+3. Get all attendance for a date: Query GSI by date
+4. Get department attendance for date range: Query GSI by department + date range
+
+Status Calculation Rules:
+- "work": Check-in 06:00-09:00, check-out before 17:00
+- "late": Check-in after 09:00 (morning only)
+- "absent": No check-in or no check-out before 23:59
+- "off": Marked as paid leave or approved day off
+- "OT": Check-out after 17:00 (1.5x points/hour)
+- "early_bird": Check-in before 06:00 (1.25x points/hour until 08:00)
+
+360 Points Calculation:
+- Base points: 8 hours × 1.0 = 8 points (normal work day)
+- Early bird bonus: hours before 08:00 × 1.25
+- Overtime bonus: hours after 17:00 × 1.5
+- Late penalty: -1 point per late occurrence
+- Absent penalty: 0 points for the day
+
+Integration with Performance Scores:
+- Daily 360 points are stored in each AttendanceHistory record
+- At the end of each quarter, a Lambda function calculates the average of all daily 360 points for that quarter
+- The quarterly average is written to the PerformanceScores table as the feedback_360 score
+- This allows attendance performance to contribute to the overall performance evaluation
+- Formula: feedback_360 = AVG(daily_points_360) for all days in the quarter
 ```
 
 
@@ -966,6 +1306,68 @@ Response: { rule }
 
 GET /notifications/history (Admin only)
 Response: { history[] }
+```
+
+#### Attendance Endpoints
+
+```
+GET /attendance
+Query: ?department=&startDate=&endDate=&employeeId=&status=
+Response: { records[], count }
+Note: Role-based access - Admin (all), Manager (department only)
+
+GET /attendance/:employeeId/:date
+Response: { record }
+Note: Get single attendance record
+
+GET /attendance/:employeeId/status
+Response: { hasSession, employeeId?, employeeName?, checkIn?, date? }
+Note: Check if employee has ongoing check-in session (public endpoint)
+
+POST /attendance/check-in (Public - no auth required)
+Request: { employeeId }
+Response: { success, message, employeeName, date, checkIn, status }
+Note: Public check-in endpoint for kiosk/mobile
+
+POST /attendance/check-out (Public - no auth required)
+Request: { employeeId }
+Response: { success, message, employeeName, date, checkOut, status, points360 }
+Note: Public check-out endpoint for kiosk/mobile
+
+POST /attendance (Admin/Manager only)
+Request: { employeeId, date, checkIn, checkOut, paidLeave, reason, status }
+Response: { record }
+Note: Manual attendance record creation
+
+PUT /attendance/:employeeId/:date (Admin/Manager only)
+Request: { checkIn, checkOut, paidLeave, reason, status }
+Response: { record }
+Note: Update existing attendance record
+
+DELETE /attendance/:employeeId/:date (Admin only)
+Response: { message }
+Note: Delete attendance record
+
+POST /attendance/bulk (Admin/Manager only)
+Request: { records[] }
+Response: { success, imported, failed, errors[] }
+Note: Bulk import attendance records
+
+GET /attendance/template
+Response: CSV file with all active employees
+Note: Download template for bulk import
+
+GET /attendance/stats
+Query: ?employeeId=&startDate=&endDate=
+Response: { stats: AttendanceStats }
+Note: Get attendance statistics for employee or department
+
+POST /attendance/aggregate-quarterly (Admin only - or triggered by EventBridge)
+Request: { year, quarter }
+Response: { success, employeesProcessed, averageScores[] }
+Note: Calculate quarterly average of 360 points and update PerformanceScores table
+Note: Triggered automatically at end of each quarter by EventBridge
+Note: Can be manually triggered by Admin for recalculation
 ```
 
 

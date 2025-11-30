@@ -1564,7 +1564,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 6.5: Attendance Management (Daily Check-in/Check-out System)
 
-- [ ] 10.1 AWS Infrastructure & Lambda - Attendance system setup
+- [x] 11.1 AWS Infrastructure & Lambda - Attendance system setup
   - **Check existing attendance infrastructure:**
     - Check if attendance tables exist: `aws dynamodb list-tables --region ap-southeast-1 | grep -i attendance`, check all existing tables with format similar to "employeeId, date, checkIn, checkOut, paidLeave, position, reason, status"
     - If attendance_history or similar table exists:
@@ -1573,6 +1573,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
       - Check GSIs for date-based and department queries
       - If schema matches, document and use existing table
       - If incomplete, decide: migrate or extend
+      - if has table but mismatched data, copy existing data to new one
     - If no attendance table exists, create: insighthr-attendance-history-dev
       - PK=employeeId, SK=date (YYYY-MM-DD)
       - GSI-1: date-index (PK=date) for daily queries
@@ -1617,7 +1618,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Update aws-secret.md with Lambda ARNs and endpoints
   - _Requirements: Attendance tracking backend, auto-absence, 360 points_
 
-- [ ] 10.2 Frontend - Attendance Management UI and Public Check-in
+- [x] 11.2 Frontend - Attendance Management UI and Public Check-in
   - **Admin/Manager Attendance Management UI** at `/admin/attendance`:
     - Create Attendance types (attendance.types.ts): AttendanceRecord, CheckInRequest, CheckOutRequest, AttendanceFilters, AttendanceStats
     - Create AttendanceManagement container with tabs: Calendar View, Records List, Bulk Operations
@@ -1640,7 +1641,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Style all with Apple theme (teal/green gradient)
   - _Requirements: Attendance management UI, public check-in/out, role-based access_
 
-- [ ] 10.3 Integration & Deploy - Attendance management
+- [x] 11.3 Integration & Deploy - Attendance management
   - Create attendanceService.ts for API calls: getAttendance, getAttendanceRecord, checkStatus, checkIn, checkOut, createAttendance, updateAttendance, deleteAttendance, bulkImport
   - Create attendance store (Zustand): attendanceRecords, filters, isLoading, currentEmployee
   - Update components to use AWS API Gateway URLs
@@ -1666,7 +1667,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 7: Page Integration
 
-- [ ] 11. Admin page integration
+- [ ] 12. Admin page integration
   - Verify all admin features are accessible from AdminPage
   - Test navigation between sections
   - Verify Employee Management page works
@@ -1675,7 +1676,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test all features together
   - _Requirements: Admin interface organization_
 
-- [ ] 12. Dashboard page integration
+- [ ] 13. Dashboard page integration
   - Verify DashboardPage component works
   - Verify PerformanceDashboard component integration
   - Verify FilterPanel component integration
@@ -1686,7 +1687,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
 
 ### Phase 8: Polish and Deployment
 
-- [ ] 13. Error handling and validation
+- [ ] 14. Error handling and validation
   - Implement form validators (email, password, required, number, percentage)
   - Add API error handling with user-friendly messages
   - Implement toast notifications for success/error feedback
@@ -1695,7 +1696,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test all error scenarios
   - _Requirements: 10.5, 10.6_
 
-- [ ] 14. Responsive design and styling
+- [ ] 15. Responsive design and styling
   - Ensure all components are responsive for desktop (1366x768+)
   - Apply consistent Apple theme across all pages
   - Implement loading states for all async operations
@@ -1703,7 +1704,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Verify all colors match Apple theme
   - _Requirements: 10.2, 10.3_
 
-- [ ] 15. Testing and bug fixes
+- [ ] 16. Testing and bug fixes
   - Test authentication flow (login, register, Google OAuth, logout)
   - Test employee management (create, edit, delete, bulk import)
   - Test performance score management (calendar view, CRUD operations, bulk operations)
@@ -1714,7 +1715,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Fix identified bugs
   - _Requirements: All_
 
-- [ ] 16. Final deployment and documentation
+- [ ] 17. Final deployment and documentation
   - Build final production bundle with Vite
   - Test production build locally
   - Deploy to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1 --delete`

@@ -1,0 +1,30 @@
+[
+  {
+    "IndexName": "date-index",
+    "KeySchema": [
+      {
+        "AttributeName": "date",
+        "KeyType": "HASH"
+      }
+    ],
+    "Projection": {
+      "ProjectionType": "ALL"
+    }
+  },
+  {
+    "IndexName": "department-date-index",
+    "KeySchema": [
+      {
+        "AttributeName": "department",
+        "KeyType": "HASH"
+      },
+      {
+        "AttributeName": "date",
+        "KeyType": "RANGE"
+      }
+    ],
+    "Projection": {
+      "ProjectionType": "ALL"
+    }
+  }
+]
