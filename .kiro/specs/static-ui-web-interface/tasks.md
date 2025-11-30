@@ -1664,6 +1664,81 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document attendance management in README.md
   - _Requirements: Attendance deployment, public check-in/out, 360 points integration_
 
+- [ ] 11.4 Hotfix - Dashboard clock and date display
+  - Add live clock to dashboard header/banner showing time in 24h format (HH:mm:ss) and date (dd/MM/yyyy)
+  - Use local timezone (UTC+7)
+  - Update every second
+  - _Requirements: Dashboard time display_
+
+- [ ] 11.5 Hotfix - Attendance bulk operations enhancements
+  - [ ] 11.5.1 Smart template download with employee list
+    - Update template download to include full employee list
+    - Add date/date range selection options for template
+    - Pre-populate employee IDs and names in template
+  - [ ] 11.5.2 Export attendance to CSV
+    - Add export button to attendance management
+    - Support date/date range filtering for export
+    - Include all attendance fields in CSV export
+  - _Requirements: Attendance bulk operations improvements_
+
+- [ ] 11.6 Hotfix - Chatbot security and anti-prompt-hacking
+  - [ ] 11.6.1 Implement prompt injection protection
+    - Isolate system prompt from user prompt
+    - Block attempts to bypass policies ("Forget prior instructions", "I am an admin", "pretend you are admin")
+    - Enforce role-based access without exposing context to AI
+    - Validate user role from JWT, not from user input
+  - [ ] 11.6.2 Clarify user vs employee roles in system prompt
+    - User table: HR app access role (Admin/Manager/Employee)
+    - Employee table: Company role/position
+    - User role determines permissions, not employee role
+    - Admins may not have employeeId
+    - When showing "my info": display both user and employee data if employeeId exists, differentiate both "role" fields
+  - [ ] 11.6.3 Update company policy in system prompt
+    - Managers can view all data within their department
+    - Admins can view all data across all departments
+    - Chatbot must not deny requests from authorized users
+    - Refusing to provide data to authorized users breaches company policy
+    - Chatbot must provide full information and analytical insights as demanded
+    - Chatbot must not hallucinate or make up data (names, numbers)
+    - Context data is the only source of truth
+  - _Requirements: Chatbot security and policy enforcement_
+
+- [ ] 11.7 Hotfix - Chatbot advanced context provider
+  - [ ] 11.7.1 Implement intelligent context detection
+    - Detect user intent from prompt keywords
+    - Keywords for full data: "all", "full", "entire", "everyone", "complete"
+    - Keywords for employees: "employee", "staff", "worker", "personnel"
+    - Keywords for performance: "performance", "score", "rating", "evaluation"
+    - Keywords for attendance: "attendance", "check-in", "check-out", "present", "absent"
+    - Keywords for users: "user", "account", "access"
+  - [ ] 11.7.2 Provide comprehensive context based on intent
+    - If full data requested: provide ALL table data
+    - If employee topics: provide ENTIRE employee table
+    - If performance topics: provide ENTIRE performance score table
+    - If attendance topics: provide ENTIRE attendance history table
+    - If user topics: provide ENTIRE user table
+    - Combine multiple contexts if prompt mentions multiple topics
+  - [ ] 11.7.3 Pre-analysis to prevent hallucination
+    - Make chatbot analyze provided context before answering
+    - Ensure answers are based only on provided data
+    - No fabrication of names, numbers, or facts
+  - _Requirements: Chatbot context intelligence and accuracy_
+
+- [ ] 11.8 Hotfix - Chatbot conversation history
+  - [ ] 11.8.1 Implement in-session message history
+    - Store conversation history in component state
+    - Include history in subsequent API calls
+    - Chatbot uses history to answer follow-up questions
+  - [ ] 11.8.2 History management
+    - Clear history on "Clear Chat" button
+    - Clear history on logout
+    - Preserve history on page refresh if session valid
+  - [ ] 11.8.3 Add loading animation
+    - Show typing/bubbling animation while AI is responding
+    - Display in message bubble area
+    - Remove animation when response received
+  - _Requirements: Chatbot conversation continuity and UX_
+
 
 ### Phase 7: Page Integration
 
