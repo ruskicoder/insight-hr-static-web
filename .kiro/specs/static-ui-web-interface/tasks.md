@@ -1697,7 +1697,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test export with date range filters
   - _Requirements: Attendance bulk operations improvements_
 
-- [ ] 11.6 Hotfix - Chatbot security and system prompt improvements
+- [x] 11.6 Hotfix - Chatbot security and system prompt improvements
   - **Backend Lambda (chatbot_handler.py):**
     - Isolate system prompt construction from user input
     - Add prompt injection detection: scan user input for phrases like "forget", "ignore previous", "you are now", "pretend", "new instructions", "system:", "assistant:"
@@ -1754,7 +1754,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test "my info" query with and without employeeId
   - _Requirements: Chatbot security and policy enforcement_
 
-- [ ] 11.7 Hotfix - Chatbot intelligent context provider
+- [x] 11.7 Hotfix - Chatbot intelligent context provider
   - use global.css for Apple theme styling
   - **Frontend (ChatbotPage.tsx):**
     - Before sending message, analyze user prompt for keywords
@@ -1782,7 +1782,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test that AI uses provided context and doesn't hallucinate
   - _Requirements: Chatbot context intelligence and accuracy_
 
-- [ ] 11.8 Hotfix - Chatbot conversation history and UX
+- [x] 11.8 Hotfix - Chatbot conversation history and UX
   - use global.css for Apple theme styling
   - **Conversation history:**
     - Add `conversationHistory` state to ChatbotPage: `Array<{role: 'user' | 'assistant', content: string}>`
