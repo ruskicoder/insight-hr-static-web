@@ -1,5 +1,5 @@
 # Implementation Plan
-
+Note: user roles are not stored in jwt response. only in users table
 ## Overview
 
 This implementation plan breaks down the InsightHR Static Web Interface MVP into discrete, manageable coding tasks. Each task builds incrementally on previous work, with a focus on delivering core functionality within the 1-month timeline.
@@ -1664,7 +1664,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document attendance management in README.md
   - _Requirements: Attendance deployment, public check-in/out, 360 points integration_
 
-- [ ] 11.4 Hotfix - Dashboard live clock display
+- [x] 11.4 Hotfix - Dashboard live clock display
   - Create LiveClock component in `src/components/dashboard/LiveClock.tsx`
   - Display format: `HH:mm:ss` (24-hour) then `dd/MM/yyyy` on separate line or same line with separator
   - Use `setInterval` to update every second
@@ -1675,7 +1675,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test date format displays correctly (dd/MM/yyyy)
   - _Requirements: Dashboard time display_
 
-- [ ] 11.5 Hotfix - Attendance bulk operations enhancements
+- [x] 11.5 Hotfix - Attendance bulk operations enhancements
   - **Smart template download:**
     - Update AttendanceBulkOperations component
     - Add date picker for single date or date range selection
@@ -1755,6 +1755,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - _Requirements: Chatbot security and policy enforcement_
 
 - [ ] 11.7 Hotfix - Chatbot intelligent context provider
+  - use global.css for Apple theme styling
   - **Frontend (ChatbotPage.tsx):**
     - Before sending message, analyze user prompt for keywords
     - Keyword detection (case-insensitive):
@@ -1782,6 +1783,7 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - _Requirements: Chatbot context intelligence and accuracy_
 
 - [ ] 11.8 Hotfix - Chatbot conversation history and UX
+  - use global.css for Apple theme styling
   - **Conversation history:**
     - Add `conversationHistory` state to ChatbotPage: `Array<{role: 'user' | 'assistant', content: string}>`
     - On send message: append user message to history
@@ -1802,6 +1804,11 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Test history clears on logout
   - Test history persists on refresh
   - Test loading animation displays correctly
+  - **Deploy to production:**
+    - Run `npm run build` and test with `npm run preview`
+    - Deploy to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+    - Invalidate CloudFront cache
+    - Test all hotfix functions from task 11.4-11.8
   - _Requirements: Chatbot conversation continuity and UX_
 
 

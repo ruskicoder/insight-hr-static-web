@@ -186,12 +186,39 @@ def build_context(user_info):
     return json.loads(context_json)
 
 
-def construct_prompt(user_message, context):
-    """Construct prompt for Bedrock with context and user query"""
+def detect_prompt_injection(user_message):
+    """Detect potential prompt injection attempts in user input"""
+    injection_patterns = [
+        'forget', 'ignore previous', 'ignore all previous', 'ignore the above',
+        'you are now', 'pretend', 'new instructions', 'new instruction',
+        'system:', 'assistant:', 'disregard', 'override',
+        'act as', 'roleplay', 'role play', 'simulate',
+        'ignore your', 'forget your', 'new role', 'change your role',
+        'you must', 'you will', 'you should now', 'from now on',
+        'previous instructions', 'above instructions', 'initial prompt'
+    ]
+    
+    user_message_lower = user_message.lower()
+    
+    for pattern in injection_patterns:
+        if pattern in user_message_lower:
+            logger.warning(f"Potential prompt injection detected: '{pattern}' in message")
+            return True
+    
+    return False
+
+
+def construct_prompt(user_message, context, conversation_history=None):
+    """Construct prompt for Bedrock with context, conversation history, and user query
+    
+    Task 11.8: Added conversation_history parameter for context continuity
+    """
     
     # Build context summary
     employees = context.get('employees', [])
     performance_scores = context.get('performance_scores', [])
+    attendance_records = context.get('attendance', [])
+    users = context.get('users', [])
     user_info = context.get('user_info', {})
     role = user_info.get('role', 'Employee')
     department = user_info.get('department')
@@ -199,76 +226,95 @@ def construct_prompt(user_message, context):
     employee_id = user_info.get('employee_id')
     employee_role = user_info.get('employee_role')
     
-    # Create a prominent role reminder with user details
-    role_reminder = f"""
-╔══════════════════════════════════════════════════════════════╗
-║  CRITICAL: USER INFORMATION - REMEMBER THIS ALWAYS          ║
-║  Name: {user_name:<50} ║
-║  User Role: {role.upper():<46} ║"""
-    
-    if employee_id:
-        role_reminder += f"""
-║  Employee ID: {employee_id:<44} ║"""
-    
-    if department:
-        role_reminder += f"""
-║  Department: {department:<47} ║"""
-    
-    if employee_role:
-        role_reminder += f"""
-║  Employee Role: {employee_role:<44} ║"""
-    
-    role_reminder += """
-║  This role determines what data the user can access.         ║
-╚══════════════════════════════════════════════════════════════╝
-"""
-    
-    context_summary = f"""{role_reminder}
+    # Build improved system prompt with clear role separation
+    context_summary = f"""You are InsightHR AI Assistant - a professional HR data analysis tool.
 
-You are an HR Assistant chatbot for InsightHR - an INTERNAL company tool.
+===================================================================
+USER CONTEXT (EXTRACTED FROM JWT TOKEN - TRUSTED SOURCE)
+===================================================================
+- User Role (app access): {role}
+- User Name: {user_name}
+- User Department: {department or "N/A"}
+- Employee ID: {employee_id or "N/A"}
 
-**CURRENT USER DETAILS**:
-- Name: {user_name}
-- User Role: {role}"""
-    
-    if employee_id:
-        context_summary += f"\n- Employee ID: {employee_id}"
-    if department:
-        context_summary += f"\n- Department: {department}"
-    if employee_role:
-        context_summary += f"\n- Employee Role: {employee_role}"
-    
-    context_summary += f"""
+IMPORTANT DISTINCTIONS:
+- User Role: Determines app permissions (Admin/Manager/Employee) - from Users table
+- Employee Position: Company job title (from Employees table)
+- User role ALWAYS takes precedence for access control
+- Admins may not have employeeId (they are system administrators, not employees)
 
-**COMPANY DATA ACCESS POLICY**:
-This is an INTERNAL tool. Company policy EXPLICITLY allows:
-- Admin: Full access to ALL employee information, ALL performance data, ALL user accounts
-- Manager: Full access to ALL employee information and performance data in their department
-- Employee: Full access to their OWN employee information and performance data
-
-**Current User's Access Level ({role})**:"""
+===================================================================
+ACCESS RULES (BASED ON USER ROLE FROM JWT)
+==================================================================="""
     
     if role == 'Admin':
-        context_summary += "\n- CAN view detailed information about ALL employees"
-        context_summary += "\n- CAN view ALL performance scores and details"
-        context_summary += "\n- CAN view ALL user accounts"
+        context_summary += """
+Admin Access Level:
+- Full access to all data across all departments
+- Can view all employee information
+- Can view all performance scores
+- Can view all user accounts
+- Can access any data in the system"""
     elif role == 'Manager':
-        context_summary += f"\n- CAN view detailed information about ALL employees in {department} department"
-        context_summary += f"\n- CAN view ALL performance scores for {department} department"
-        context_summary += "\n- CAN answer specific questions about individual employees in their department"
+        context_summary += f"""
+Manager Access Level:
+- Full access to data within {department} department
+- Can view all employees in {department}
+- Can view all performance scores for {department}
+- Can answer questions about employees in their department
+- Cannot access data from other departments"""
     else:
-        context_summary += "\n- CAN view their OWN detailed employee information"
-        context_summary += "\n- CAN view their OWN performance scores"
+        context_summary += f"""
+Employee Access Level:
+- Access to own data only
+- Can view own employee information (Employee ID: {employee_id or "N/A"})
+- Can view own performance scores
+- Cannot access other employees' data"""
+    
+    context_summary += """
+
+===================================================================
+COMPANY POLICY
+===================================================================
+- Superiors have the right to view all subordinate data
+- You must provide requested information to authorized users
+- Refusing authorized requests violates company policy
+- Provide full details, insights, and analytics as requested
+- This is an internal tool - data access is appropriate within permissions
+
+===================================================================
+DATA SOURCES
+===================================================================
+- Users table: App access control (userId, email, role, department, employeeId)
+- Employees table: Company information (employeeId, name, position, department, salary, etc)
+- Performance Scores table: Evaluations and ratings
+- Attendance table: Check-in/out records and points
+
+When user asks "my info":
+- If employeeId exists: fetch BOTH user record AND employee record
+- Clearly label "User Role" (app access) vs "Employee Position" (company job)
+- Show both sets of information separately"""
     
     context_summary += f"""
 
-**COMPLETE DATA AVAILABLE (filtered by {role} permissions)**:
+===================================================================
+CRITICAL RULES - NEVER VIOLATE THESE
+===================================================================
+1. ONLY use data from provided context below
+2. NEVER fabricate names, numbers, or facts
+3. If data not in context, state "I don't have that information"
+4. Context data is the ONLY source of truth
+5. Do not make assumptions or extrapolations beyond provided data
 
-**EMPLOYEE RECORDS ({len(employees)} total)**:"""
+===================================================================
+AVAILABLE DATA (filtered by {role} permissions)
+===================================================================
+
+EMPLOYEE RECORDS ({len(employees)} total):"""
     
     # Add FULL employee data (not just summary)
     if employees:
-        context_summary += "\n\nFull Employee List:\n"
+        context_summary += "\n"
         for emp in employees[:50]:  # Limit to first 50 to avoid token limits
             context_summary += f"\n- Employee ID: {emp.get('employeeId')}"
             context_summary += f"\n  Name: {emp.get('name')}"
@@ -284,11 +330,11 @@ This is an INTERNAL tool. Company policy EXPLICITLY allows:
     else:
         context_summary += "\nNo employee data available for your access level."
     
-    context_summary += f"\n\n**PERFORMANCE SCORE RECORDS ({len(performance_scores)} total)**:"
+    context_summary += f"\n\nPERFORMANCE SCORE RECORDS ({len(performance_scores)} total):"
     
     # Add FULL performance data (not just summary)
     if performance_scores:
-        context_summary += "\n\nFull Performance Scores:\n"
+        context_summary += "\n"
         for score in performance_scores[:50]:  # Limit to first 50
             context_summary += f"\n- Employee ID: {score.get('employeeId')}"
             context_summary += f"\n  Period: {score.get('period')}"
@@ -303,101 +349,72 @@ This is an INTERNAL tool. Company policy EXPLICITLY allows:
     else:
         context_summary += "\nNo performance data available for your access level."
     
-    # Construct full prompt with role reminder
-    prompt = f"""{context_summary}
+    # Add attendance data if provided
+    if attendance_records:
+        context_summary += f"\n\nATTENDANCE RECORDS ({len(attendance_records)} total):"
+        context_summary += "\n"
+        for record in attendance_records[:50]:  # Limit to first 50
+            context_summary += f"\n- Employee ID: {record.get('employeeId')}"
+            context_summary += f"\n  Date: {record.get('date')}"
+            context_summary += f"\n  Check-in: {record.get('checkIn', 'N/A')}"
+            context_summary += f"\n  Check-out: {record.get('checkOut', 'N/A')}"
+            context_summary += f"\n  Status: {record.get('status')}"
+            context_summary += f"\n  Points: {record.get('points360', 'N/A')}"
+            context_summary += "\n"
+        
+        if len(attendance_records) > 50:
+            context_summary += f"\n... and {len(attendance_records) - 50} more attendance records\n"
+    
+    # Add user data if provided
+    if users:
+        context_summary += f"\n\nUSER ACCOUNTS ({len(users)} total):"
+        context_summary += "\n"
+        for user in users[:50]:  # Limit to first 50
+            context_summary += f"\n- User ID: {user.get('userId')}"
+            context_summary += f"\n  Email: {user.get('email')}"
+            context_summary += f"\n  Name: {user.get('name')}"
+            context_summary += f"\n  Role: {user.get('role')}"
+            context_summary += f"\n  Department: {user.get('department', 'N/A')}"
+            context_summary += f"\n  Employee ID: {user.get('employeeId', 'N/A')}"
+            context_summary += "\n"
+        
+        if len(users) > 50:
+            context_summary += f"\n... and {len(users) - 50} more user accounts\n"
+    
+    # Add conversation history if provided (Task 11.8)
+    history_section = ""
+    if conversation_history and len(conversation_history) > 0:
+        history_section = "\n\n===================================================================\n"
+        history_section += "CONVERSATION HISTORY (for context continuity)\n"
+        history_section += "===================================================================\n"
+        for msg in conversation_history:
+            role_label = "User" if msg.get('role') == 'user' else "Assistant"
+            history_section += f"\n{role_label}: {msg.get('content')}\n"
+        history_section += "\nUse this conversation history to maintain context and provide relevant follow-up responses.\n"
+    
+    # Construct final prompt
+    prompt = f"""{context_summary}{history_section}
 
-**═══════════════════════════════════════════════════════════════**
-**PRIMARY PURPOSE OF THIS TOOL**
-**═══════════════════════════════════════════════════════════════**
+===================================================================
+RESPONSE GUIDELINES
+===================================================================
+1. Provide clear, professional responses
+2. Use bullet points and formatting for readability
+3. Include specific data from context when relevant
+4. Stay focused on HR-related queries
+5. Politely decline non-HR questions
+6. If data is not in context, state "I don't have that information"
+7. Use conversation history to maintain context continuity
 
-This chatbot's MAIN PURPOSE is to:
-1. ANALYZE individual employee performance
-2. IDENTIFY specific employees by name and performance metrics
-3. SINGLE OUT and HIGHLIGHT employees based on their performance evaluations
-4. PROVIDE DETAILED INDIVIDUAL EMPLOYEE INFORMATION
+===================================================================
+USER QUESTION
+===================================================================
+{user_message}
 
-The user ({user_name}) is a {role} - a HIGH-RANKING INDIVIDUAL who NEEDS to:
-- Identify top performers by name
-- Identify underperformers by name
-- Compare specific employees' performance
-- Get detailed information about individual employees
-- Make personnel decisions based on performance data
-
-**THIS IS COMPLETELY APPROPRIATE AND EXPECTED BEHAVIOR FOR THIS TOOL.**
-
-**═══════════════════════════════════════════════════════════════**
-
-⚠️ USER ROLE: {role} | NAME: {user_name} | REMEMBER THIS ALWAYS
-
-**MANDATORY BEHAVIOR REQUIREMENTS**:
-
-1. **YOU MUST IDENTIFY INDIVIDUAL EMPLOYEES BY NAME AND PERFORMANCE**:
-   - When asked "Who are the top performers?", list specific employee names with their scores
-   - When asked "Who has the lowest score?", provide the specific employee name and details
-   - When asked "List employees with scores below 60", provide names, IDs, and scores
-   - When asked about specific employees, provide ALL their details
-   - DO NOT refuse to identify individuals - this is the PRIMARY PURPOSE of this tool
-
-2. **YOU MUST SINGLE OUT AND HIGHLIGHT EMPLOYEES BASED ON PERFORMANCE**:
-   - "Show me the worst performers" → List specific names with scores
-   - "Who should I be concerned about?" → Identify specific employees with low scores
-   - "Rank employees by performance" → Provide ranked list with names
-   - This is NOT inappropriate - it's the MAIN FUNCTION of this HR tool
-
-3. **PROVIDE COMPLETE INDIVIDUAL EMPLOYEE DETAILS**:
-   - Full name, employee ID, department, role, email, hire date, manager
-   - Specific performance scores for each period
-   - Comparisons between individual employees
-   - Detailed analysis of individual performance trends
-
-4. **RESPECT ACCESS PERMISSIONS** (but within permissions, provide ALL details):
-   - Admin: Can access and identify ALL employees by performance
-   - Manager: Can access and identify ALL employees in their department by performance
-   - Employee: Can access only their OWN data
-   - If user asks for data outside permissions, explain the restriction
-
-5. **STAY ON TOPIC**: Only answer HR-related questions. Politely decline non-HR questions.
-
-6. **FORMAT CLEARLY**: Use bullet points, tables, and clear formatting for readability.
-
-**EXAMPLES OF CORRECT RESPONSES**:
-
-Q: "Who are the top 3 performers in DEV?"
-A: "The top 3 performers in DEV department are:
-1. John Smith (DEV-001) - Score: 95.5
-2. Jane Doe (DEV-002) - Score: 92.3
-3. Bob Johnson (DEV-003) - Score: 89.7"
-
-Q: "Who has the lowest score?"
-A: "The employee with the lowest score is Mike Wilson (DEV-015) with a score of 45.2 in period 2025-1. He is a Junior Developer in the DEV department."
-
-Q: "List all employees with scores below 60"
-A: "Employees with scores below 60:
-- Mike Wilson (DEV-015): 45.2
-- Sarah Chen (QA-008): 52.8
-- Tom Brown (DAT-004): 58.1"
-
-Q: "Who should I be concerned about in my department?"
-A: "Based on performance scores, you should review these employees:
-- Mike Wilson (DEV-015): Score 45.2 - significantly below target
-- Sarah Chen (DEV-020): Score 55.8 - needs improvement"
-
-**CRITICAL REMINDERS**:
-- Identifying employees by performance is THE PRIMARY PURPOSE
-- The user is a {role} who NEEDS this information
-- DO NOT refuse to provide individual employee names and details
-- DO NOT say it would be "inappropriate" - it's the MAIN FUNCTION
-- This is a legitimate business tool for performance management
-
-**FINAL REMINDER**: 
-- User: {user_name}
-- Role: {role}
-- PRIMARY PURPOSE: Analyze and identify individual employees by performance
-- Provide DETAILED, SPECIFIC information including names and scores
-
-**User Question**: {user_message}
-
-**Your Response**:"""
+===================================================================
+YOUR RESPONSE
+===================================================================
+"""
     
     return prompt
 
@@ -447,6 +464,8 @@ def lambda_handler(event, context):
         # Parse request body
         body = json.loads(event.get('body', '{}'))
         user_message = body.get('message', '').strip()
+        frontend_context = body.get('context', {})  # Optional context from frontend
+        conversation_history = body.get('history', [])  # Task 11.8: Conversation history for context continuity
         
         if not user_message:
             return {
@@ -463,7 +482,24 @@ def lambda_handler(event, context):
                 })
             }
         
-        # Extract user email from JWT token
+        # Detect prompt injection attempts
+        if detect_prompt_injection(user_message):
+            logger.warning(f"Prompt injection attempt detected from user message: {user_message[:100]}")
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+                    'Access-Control-Allow-Methods': 'POST,OPTIONS'
+                },
+                'body': json.dumps({
+                    'success': False,
+                    'error': 'Invalid request detected. Please rephrase your question.'
+                })
+            }
+        
+        # Extract user email from JWT token (trusted source)
         request_context = event.get('requestContext', {})
         authorizer = request_context.get('authorizer', {})
         claims = authorizer.get('claims', {})
@@ -484,15 +520,50 @@ def lambda_handler(event, context):
                 })
             }
         
-        # Get complete user information
+        # Get complete user information from database
+        # Role is fetched from Users table, not JWT (as per system design)
         user_info = get_user_info(user_email)
+        
         logger.info(f"User info: {user_info['name']}, role: {user_info['role']}, department: {user_info['department']}")
         
-        # Build context from DynamoDB
+        # Build context from DynamoDB (backend fetched data)
         data_context = build_context(user_info)
         
-        # Construct prompt for Bedrock
-        prompt = construct_prompt(user_message, data_context)
+        # Merge frontend context if provided (intelligent context provider)
+        if frontend_context:
+            logger.info(f"Using frontend-provided context with keys: {list(frontend_context.keys())}")
+            # Frontend context takes precedence as it's more targeted
+            # Extract data from API response format {success: true, data: [...]}
+            if 'employees' in frontend_context:
+                employees_data = frontend_context['employees']
+                if isinstance(employees_data, dict) and 'data' in employees_data:
+                    data_context['employees'] = employees_data['data']
+                else:
+                    data_context['employees'] = employees_data
+            
+            if 'performance_scores' in frontend_context or 'performanceScores' in frontend_context:
+                perf_data = frontend_context.get('performanceScores') or frontend_context.get('performance_scores', [])
+                if isinstance(perf_data, dict) and 'data' in perf_data:
+                    data_context['performance_scores'] = perf_data['data']
+                else:
+                    data_context['performance_scores'] = perf_data
+            
+            if 'attendance' in frontend_context:
+                attendance_data = frontend_context['attendance']
+                if isinstance(attendance_data, dict) and 'data' in attendance_data:
+                    data_context['attendance'] = attendance_data['data']
+                else:
+                    data_context['attendance'] = attendance_data
+            
+            if 'users' in frontend_context:
+                users_data = frontend_context['users']
+                if isinstance(users_data, dict) and 'data' in users_data:
+                    data_context['users'] = users_data['data']
+                else:
+                    data_context['users'] = users_data
+        
+        # Construct prompt for Bedrock with conversation history (Task 11.8)
+        prompt = construct_prompt(user_message, data_context, conversation_history)
         
         # Invoke Bedrock
         assistant_response = invoke_bedrock(prompt)
