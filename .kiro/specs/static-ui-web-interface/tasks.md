@@ -1664,79 +1664,144 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   - Document attendance management in README.md
   - _Requirements: Attendance deployment, public check-in/out, 360 points integration_
 
-- [ ] 11.4 Hotfix - Dashboard clock and date display
-  - Add live clock to dashboard header/banner showing time in 24h format (HH:mm:ss) and date (dd/MM/yyyy)
-  - Use local timezone (UTC+7)
-  - Update every second
+- [ ] 11.4 Hotfix - Dashboard live clock display
+  - Create LiveClock component in `src/components/dashboard/LiveClock.tsx`
+  - Display format: `HH:mm:ss` (24-hour) then `dd/MM/yyyy` on separate line or same line with separator
+  - Use `setInterval` to update every second
+  - Use local timezone (browser's local time, which should be UTC+7 for deployment region)
+  - Style to match dashboard header/banner design
+  - Add LiveClock to DashboardPage header/banner center position
+  - Test clock updates correctly every second
+  - Test date format displays correctly (dd/MM/yyyy)
   - _Requirements: Dashboard time display_
 
 - [ ] 11.5 Hotfix - Attendance bulk operations enhancements
-  - [ ] 11.5.1 Smart template download with employee list
-    - Update template download to include full employee list
-    - Add date/date range selection options for template
-    - Pre-populate employee IDs and names in template
-  - [ ] 11.5.2 Export attendance to CSV
-    - Add export button to attendance management
-    - Support date/date range filtering for export
-    - Include all attendance fields in CSV export
+  - **Smart template download:**
+    - Update AttendanceBulkOperations component
+    - Add date picker for single date or date range selection
+    - Fetch full employee list from `/employees` endpoint
+    - Generate CSV template with columns: employeeId, employeeName, date, checkIn, checkOut, status, paidLeave, reason
+    - Pre-populate employeeId and employeeName for all employees
+    - If date selected: pre-populate date column
+    - If date range: create rows for each employee × each date in range
+    - Download as `attendance_template_YYYY-MM-DD.csv`
+  - **Export attendance to CSV:**
+    - Add "Export to CSV" button to AttendanceManagement component
+    - Add date/date range filter modal for export
+    - Fetch filtered attendance records from API
+    - Generate CSV with all fields: employeeId, employeeName, date, checkIn, checkOut, status, points360, paidLeave, reason, department, position
+    - Download as `attendance_export_YYYY-MM-DD_to_YYYY-MM-DD.csv`
+    - Show loading state during export
+    - Show success toast on completion
+  - Test template download with various date selections
+  - Test export with date range filters
   - _Requirements: Attendance bulk operations improvements_
 
-- [ ] 11.6 Hotfix - Chatbot security and anti-prompt-hacking
-  - [ ] 11.6.1 Implement prompt injection protection
-    - Isolate system prompt from user prompt
-    - Block attempts to bypass policies ("Forget prior instructions", "I am an admin", "pretend you are admin")
-    - Enforce role-based access without exposing context to AI
-    - Validate user role from JWT, not from user input
-  - [ ] 11.6.2 Clarify user vs employee roles in system prompt
-    - User table: HR app access role (Admin/Manager/Employee)
-    - Employee table: Company role/position
-    - User role determines permissions, not employee role
+- [ ] 11.6 Hotfix - Chatbot security and system prompt improvements
+  - **Backend Lambda (chatbot_handler.py):**
+    - Isolate system prompt construction from user input
+    - Add prompt injection detection: scan user input for phrases like "forget", "ignore previous", "you are now", "pretend", "new instructions", "system:", "assistant:"
+    - If injection detected: return error "Invalid request detected"
+    - Extract user role from JWT claims (requestContext.authorizer.claims)
+    - Never use user-provided role information
+    - Build system prompt with clear sections:
+      - Role definition: User role (Admin/Manager/Employee) vs Employee role (company position)
+      - Access rules: Admin (all data), Manager (department data), Employee (own data)
+      - Data tables: Users table (app access), Employees table (company info)
+      - Policy: Superiors have right to view subordinate data, chatbot must comply
+      - Anti-hallucination: Only use provided context data, never fabricate information
+    - When user asks "my info": if employeeId exists, fetch both user and employee records, clearly label "User Role" vs "Employee Position"
+  - **System prompt template:**
+    ```
+    You are InsightHR AI Assistant. 
+    
+    USER CONTEXT:
+    - User Role (app access): {user_role}
+    - User Department: {user_department}
+    - Employee ID: {employee_id or "N/A"}
+    
+    IMPORTANT DISTINCTIONS:
+    - User Role: Determines app permissions (Admin/Manager/Employee)
+    - Employee Position: Company job title (from Employees table)
+    - User role ALWAYS takes precedence for access control
     - Admins may not have employeeId
-    - When showing "my info": display both user and employee data if employeeId exists, differentiate both "role" fields
-  - [ ] 11.6.3 Update company policy in system prompt
-    - Managers can view all data within their department
-    - Admins can view all data across all departments
-    - Chatbot must not deny requests from authorized users
-    - Refusing to provide data to authorized users breaches company policy
-    - Chatbot must provide full information and analytical insights as demanded
-    - Chatbot must not hallucinate or make up data (names, numbers)
+    
+    ACCESS RULES:
+    - Admin: Full access to all data across all departments
+    - Manager: Full access to data within their department
+    - Employee: Access to own data only
+    
+    COMPANY POLICY:
+    - Superiors have the right to view all subordinate data
+    - You must provide requested information to authorized users
+    - Refusing authorized requests violates company policy
+    - Provide full details, insights, and analytics as requested
+    
+    DATA SOURCES:
+    - Users table: App access (userId, email, role, department, employeeId)
+    - Employees table: Company info (employeeId, name, position, department, salary, etc)
+    - Performance Scores table: Evaluations and ratings
+    - Attendance table: Check-in/out records and points
+    
+    CRITICAL RULES:
+    - Only use data from provided context
+    - Never fabricate names, numbers, or facts
+    - If data not in context, state "I don't have that information"
     - Context data is the only source of truth
+    ```
+  - Test with various prompt injection attempts
+  - Test role-based access enforcement
+  - Test "my info" query with and without employeeId
   - _Requirements: Chatbot security and policy enforcement_
 
-- [ ] 11.7 Hotfix - Chatbot advanced context provider
-  - [ ] 11.7.1 Implement intelligent context detection
-    - Detect user intent from prompt keywords
-    - Keywords for full data: "all", "full", "entire", "everyone", "complete"
-    - Keywords for employees: "employee", "staff", "worker", "personnel"
-    - Keywords for performance: "performance", "score", "rating", "evaluation"
-    - Keywords for attendance: "attendance", "check-in", "check-out", "present", "absent"
-    - Keywords for users: "user", "account", "access"
-  - [ ] 11.7.2 Provide comprehensive context based on intent
-    - If full data requested: provide ALL table data
-    - If employee topics: provide ENTIRE employee table
-    - If performance topics: provide ENTIRE performance score table
-    - If attendance topics: provide ENTIRE attendance history table
-    - If user topics: provide ENTIRE user table
-    - Combine multiple contexts if prompt mentions multiple topics
-  - [ ] 11.7.3 Pre-analysis to prevent hallucination
-    - Make chatbot analyze provided context before answering
-    - Ensure answers are based only on provided data
-    - No fabrication of names, numbers, or facts
+- [ ] 11.7 Hotfix - Chatbot intelligent context provider
+  - **Frontend (ChatbotPage.tsx):**
+    - Before sending message, analyze user prompt for keywords
+    - Keyword detection (case-insensitive):
+      - Full data: "all", "full", "entire", "everyone", "complete", "whole", "total"
+      - Employees: "employee", "staff", "worker", "personnel", "team member"
+      - Performance: "performance", "score", "rating", "evaluation", "review", "kpi"
+      - Attendance: "attendance", "check-in", "check-out", "present", "absent", "late", "overtime"
+      - Users: "user", "account", "access", "login", "permission"
+    - Fetch required data based on detected keywords:
+      - If full data keywords: fetch all tables
+      - If employee keywords: fetch `/employees` (all records)
+      - If performance keywords: fetch `/performance-scores` (all records)
+      - If attendance keywords: fetch `/attendance` (all records)
+      - If user keywords: fetch `/users` (all records)
+      - If multiple topics: fetch all relevant tables
+    - Include fetched data in `context` field of API request
+    - Show loading indicator while fetching context
+  - **Backend (chatbot_handler.py):**
+    - Accept `context` field in request body
+    - Append context data to system prompt before user message
+    - Format context clearly: "AVAILABLE DATA: [table name]: [records]"
+    - Instruct AI to analyze context before responding
+  - Test with queries requiring different data combinations
+  - Test that AI uses provided context and doesn't hallucinate
   - _Requirements: Chatbot context intelligence and accuracy_
 
-- [ ] 11.8 Hotfix - Chatbot conversation history
-  - [ ] 11.8.1 Implement in-session message history
-    - Store conversation history in component state
-    - Include history in subsequent API calls
-    - Chatbot uses history to answer follow-up questions
-  - [ ] 11.8.2 History management
-    - Clear history on "Clear Chat" button
-    - Clear history on logout
-    - Preserve history on page refresh if session valid
-  - [ ] 11.8.3 Add loading animation
-    - Show typing/bubbling animation while AI is responding
-    - Display in message bubble area
-    - Remove animation when response received
+- [ ] 11.8 Hotfix - Chatbot conversation history and UX
+  - **Conversation history:**
+    - Add `conversationHistory` state to ChatbotPage: `Array<{role: 'user' | 'assistant', content: string}>`
+    - On send message: append user message to history
+    - On receive response: append assistant message to history
+    - Include last 10 messages in API request as `history` field
+    - Backend: prepend history to prompt for context continuity
+    - Clear history on "Clear Chat" button click
+    - Clear history on logout (useEffect cleanup)
+    - Persist history in sessionStorage on page refresh
+    - Restore history from sessionStorage on mount if session valid
+  - **Loading animation:**
+    - Create TypingIndicator component with animated dots/bubbles
+    - Show TypingIndicator in message list while `isLoading` is true
+    - Position at bottom of message list
+    - Animate with CSS: three dots bouncing or pulsing
+    - Remove when response received
+  - Test conversation continuity with follow-up questions
+  - Test history clears on logout
+  - Test history persists on refresh
+  - Test loading animation displays correctly
   - _Requirements: Chatbot conversation continuity and UX_
 
 
