@@ -1,0 +1,32 @@
+{
+  "name": "insighthr-cloudwatch-canaries",
+  "version": "1.0.0",
+  "description": "CloudWatch Synthetics canaries for InsightHR monitoring",
+  "scripts": {
+    "deploy": "pwsh -File deploy-canaries.ps1",
+    "create-alarms": "pwsh -File create-alarms.ps1",
+    "create-insights": "pwsh -File create-contributor-insights.ps1",
+    "create-dashboard": "pwsh -File create-dashboard.ps1",
+    "test": "pwsh -File test-canaries.ps1"
+  },
+  "keywords": [
+    "cloudwatch",
+    "synthetics",
+    "monitoring",
+    "canaries",
+    "aws"
+  ],
+  "author": "InsightHR Team",
+  "license": "MIT",
+  "dependencies": {
+    "Synthetics": "syn-nodejs-puppeteer-6.2"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/insighthr/insighthr-web"
+  }
+}

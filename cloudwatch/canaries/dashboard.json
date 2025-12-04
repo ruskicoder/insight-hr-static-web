@@ -1,0 +1,1 @@
+{"widgets":[{"type":"metric","properties":{"metrics":[["CloudWatchSynthetics","SuccessPercent"]],"view":"timeSeries","region":"ap-southeast-1","title":"Canary Success Rate"}}]}
