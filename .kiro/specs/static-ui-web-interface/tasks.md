@@ -1811,6 +1811,253 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
     - Test all hotfix functions from task 11.4-11.8
   - _Requirements: Chatbot conversation continuity and UX_
 
+- [x] 11.9 Hotfix - Update Proposal Template to Reflect Current Implementation
+  - **Objective:** Update `Proposal template.md` to accurately reflect the current state of the InsightHR codebase and architecture
+  
+  - **Section 1: Executive Summary (1.1)**
+    - Update business objectives to reflect implemented features
+    - Add actual use cases: attendance tracking, performance scoring, AI chatbot, employee management
+    - Update technology stack: React + TypeScript, Vite, Zustand, AWS Lambda, DynamoDB, Cognito, Bedrock, CloudFront
+    - Mention serverless architecture with specific AWS services used
+  
+  - **Section 2: Architecture Diagram (2.1)**
+    - Verify architecture diagram matches current implementation
+    - Ensure all AWS services are represented:
+      - Frontend: S3 + CloudFront (static hosting)
+      - Backend: API Gateway + Lambda (8 function groups: auth, users, employees, performance, performance-scores, attendance, chatbot, kpis)
+      - Database: DynamoDB (tables: Users, Employees, PerformanceScores, Attendance, PasswordResetRequests)
+      - Auth: Cognito User Pool with Google OAuth
+      - AI: Amazon Bedrock (Claude) for chatbot
+      - Monitoring: CloudWatch Logs
+      - Notifications: SNS (for password reset notifications)
+    - Update tools list to match actual implementation
+  
+  - **Section 3: Technical Plan (2.2)**
+    - Update feature implementation details:
+      - Authentication: Cognito + Google OAuth, password reset workflow, force password change
+      - User Management: CRUD, bulk import, role-based access (Admin/Manager/Employee), employee linking
+      - Employee Management: CRUD, bulk import, department-based filtering
+      - Performance Score Management: Calendar view, quarterly scoring, bulk operations, template import/export
+      - Attendance System: Public check-in/check-out, auto-absence marking, 360 points calculation, status tracking
+      - Dashboard: Charts tab (overview cards, department breakdown, trends, distribution), Employees tab (detailed records), live clock
+      - AI Chatbot: Bedrock integration, conversation history, intelligent context provider, role-based data access, prompt injection protection
+    - Update data flow descriptions to match actual Lambda implementations
+  
+  - **Section 4: Project Plan (2.3)**
+    - Update sprint breakdown to reflect actual development phases:
+      - Phase 0: AWS Infrastructure Foundation (Cognito, DynamoDB, S3, CloudFront, API Gateway, IAM)
+      - Phase 1: Project Setup (React + Vite + TypeScript, Tailwind, Zustand)
+      - Phase 2: Authentication (Login, Register, Google OAuth, Password Reset)
+      - Phase 3: Performance Dashboard (Charts, Filters, Export)
+      - Phase 4: Employee Management (CRUD, Bulk Import, Department Filtering)
+      - Phase 5: Performance Score Management (Calendar View, Bulk Operations)
+      - Phase 6: Chatbot Integration (Bedrock, Context Provider, Security)
+      - Phase 6.5: Attendance Management (Check-in/Check-out, Auto-absence, 360 Points)
+      - Phase 7: Page Integration
+      - Phase 8: Polish and Deployment
+    - Update milestones to match completed tasks
+    - Update knowledge transfer topics to include all implemented features
+  
+  - **Section 5: Security (2.4)**
+    - Update security implementations:
+      - Access Control: Cognito JWT validation, role-based access (Admin/Manager/Employee), department-based filtering for Managers
+      - Infrastructure: Serverless Lambda, API Gateway with Cognito authorizer
+      - Data Protection: DynamoDB encryption at rest (KMS), HTTPS/TLS in transit (CloudFront)
+      - Detection: CloudWatch Logs for Lambda and API Gateway
+      - Incident Management: CloudWatch Alarms, SNS notifications
+      - Chatbot Security: Prompt injection detection, role-based context isolation
+  
+  - **Section 6: Activities and Deliverables (3.1)**
+    - Update activities table to reflect actual implementation phases
+    - Update deliverables to match completed features:
+      - Assessment: AWS account setup, architecture review, sample data validation
+      - Base Infrastructure: Cognito, S3, CloudFront, API Gateway, DynamoDB, IAM roles
+      - Component 1: User/Employee management, authentication, password reset
+      - Component 2: Performance dashboard, score management, calendar view
+      - Component 3: AI chatbot (Bedrock), attendance system, 360 points
+      - Testing & Golive: Functional testing, security testing, performance testing
+      - Handover: Documentation, operations manual, knowledge transfer
+    - Update man-day estimates based on actual effort
+  
+  - **Section 7: Out of Scope (3.2)**
+    - Keep existing out-of-scope items
+    - Add any features that were discussed but not implemented
+  
+  - **Section 8: Cost Breakdown (4)**
+    - Verify AWS cost calculator link is accurate
+    - Update service breakdown to match actual usage:
+      - Lambda: 8 function groups with actual invocation estimates
+      - DynamoDB: 5 tables with actual read/write capacity
+      - Cognito: Actual MAU count
+      - Bedrock: Actual token usage for chatbot
+      - CloudFront: Actual data transfer estimates
+      - S3: Static hosting + file uploads
+      - API Gateway: Actual request volume
+      - CloudWatch: Actual log ingestion volume
+    - Update monthly cost estimate if needed
+  
+  - **Section 9: Team (5)**
+    - Update team structure to reflect actual roles
+    - Add actual team members if applicable
+  
+  - **Testing:**
+    - Review updated Proposal template for accuracy
+    - Verify all sections reflect current implementation
+    - Ensure technical details match aws-secret.md
+    - Check that architecture diagram matches actual AWS resources
+    - Validate cost estimates against actual AWS billing
+  
+  - **Documentation:**
+    - Save updated Proposal template.md
+    - Add note at top: "Last Updated: [Date] - Reflects actual implementation as of Phase 6.5"
+    - Create backup of original template: `Proposal template.original.md`
+  
+  _Requirements: Project documentation accuracy, stakeholder communication_
+
+- [ ] 11.10 Hotfix - CloudWatch Monitoring Setup (Canaries & Contributor Insights)
+  
+  **Objective:** Set up comprehensive CloudWatch monitoring for critical application workflows and error tracking
+  
+  **CloudWatch Synthetics Canaries:**
+  
+  - **1. Login Canary** (`insighthr-login-canary`)
+    - Create canary script to test login flow:
+      - Navigate to CloudFront URL
+      - Fill in email and password fields
+      - Click login button
+      - Verify successful redirect to dashboard
+      - Check for authentication token in localStorage
+    - Schedule: Every 5 minutes
+    - Alarm threshold: 2 consecutive failures
+    - SNS notification on failure
+    - Test with valid test user credentials
+  
+  - **2. Dashboard Load Canary** (`insighthr-dashboard-canary`)
+    - Create canary script to test dashboard performance:
+      - Login with test credentials
+      - Navigate to /dashboard
+      - Wait for charts to load
+      - Verify all chart components render (LineChart, BarChart, PieChart)
+      - Check API response time for /performance endpoint
+      - Measure total page load time
+    - Schedule: Every 10 minutes
+    - Alarm threshold: Load time > 5 seconds or 2 consecutive failures
+    - SNS notification on failure
+  
+  - **3. Auto-Scoring Performance Canary** (`insighthr-autoscoring-canary`)
+    - Create canary script to test performance score calculation:
+      - Trigger performance-handler Lambda via API Gateway
+      - Verify AUTO_SCORING_LAMBDA_ARN is invoked (if configured)
+      - Check response time for score calculation
+      - Verify scores are written to PerformanceScores table
+      - Validate score calculation accuracy
+    - Schedule: Every 30 minutes
+    - Alarm threshold: Response time > 10 seconds or calculation errors
+    - SNS notification on failure
+  
+  - **4. AI Assistant Response Time Canary** (`insighthr-chatbot-canary`)
+    - Create canary script to test chatbot performance:
+      - Login with test credentials
+      - Navigate to /chatbot
+      - Send test query: "Show me all employees in DEV department"
+      - Measure Bedrock API response time
+      - Verify response contains expected data
+      - Check for prompt injection detection
+    - Schedule: Every 15 minutes
+    - Alarm threshold: Response time > 15 seconds or 2 consecutive failures
+    - SNS notification on failure
+  
+  **CloudWatch Contributor Insights:**
+  
+  - **Error Type Analysis Rule** (`insighthr-error-types`)
+    - Create Contributor Insights rule to analyze error patterns:
+      - Log group: All Lambda function log groups
+      - Query pattern: Extract error types from logs
+      - Aggregate by: Error message, Lambda function, HTTP status code
+      - Time range: Last 24 hours
+      - Top contributors: Top 10 error types
+    - Metrics to track:
+      - 4xx errors (client errors): authentication failures, validation errors
+      - 5xx errors (server errors): Lambda timeouts, DynamoDB throttling, Bedrock errors
+      - Custom error codes: prompt injection detected, role access denied
+    - Create dashboard widget showing top error types
+  
+  **Implementation Steps:**
+  
+  - **Step 1: Create Canary Scripts**
+    - Create folder: `cloudwatch/canaries/`
+    - Write Node.js canary scripts using Synthetics SDK
+    - Package scripts with dependencies
+    - Test scripts locally with Synthetics recorder
+  
+  - **Step 2: Deploy Canaries to CloudWatch**
+    - Create IAM role for Synthetics with permissions:
+      - CloudWatch Logs write access
+      - S3 bucket access for screenshots/artifacts
+      - Lambda invoke permissions (for API testing)
+    - Deploy each canary using AWS CLI or CloudFormation
+    - Configure S3 bucket for canary artifacts: `insighthr-canary-artifacts-sg`
+    - Set up SNS topic for canary alarms: `insighthr-canary-alerts`
+  
+  - **Step 3: Create CloudWatch Alarms**
+    - Create alarm for each canary:
+      - Metric: SuccessPercent < 100%
+      - Evaluation periods: 2 consecutive failures
+      - Action: Send SNS notification to `insighthr-canary-alerts`
+    - Create composite alarm for overall system health
+  
+  - **Step 4: Set Up Contributor Insights**
+    - Create Contributor Insights rule for error analysis
+    - Define log group pattern: `/aws/lambda/insighthr-*`
+    - Create query to extract error types:
+      ```
+      fields @timestamp, @message, @logStream
+      | filter @message like /ERROR/ or @message like /Exception/ or @message like /Failed/
+      | parse @message /(?<error_type>.*Error|.*Exception|.*Failed)/
+      | stats count() by error_type, @logStream
+      | sort count desc
+      | limit 10
+      ```
+    - Schedule rule to run every hour
+  
+  - **Step 5: Create CloudWatch Dashboard**
+    - Create dashboard: `InsightHR-Monitoring`
+    - Add widgets:
+      - Canary success rate (line chart for all 4 canaries)
+      - Response time metrics (line chart)
+      - Error type distribution (pie chart from Contributor Insights)
+      - Lambda invocation count (bar chart)
+      - DynamoDB read/write capacity (line chart)
+      - API Gateway request count (line chart)
+    - Set dashboard refresh interval: 1 minute
+  
+  - **Step 6: Configure SNS Notifications**
+    - Create SNS topic: `insighthr-canary-alerts`
+    - Subscribe email addresses for alerts
+    - Configure email format with canary details
+    - Test notification delivery
+  
+  - **Testing:**
+    - Manually trigger each canary and verify success
+    - Simulate failures (invalid credentials, timeout) and verify alarms trigger
+    - Check SNS notifications are received
+    - Verify Contributor Insights rule captures errors correctly
+    - Test dashboard displays all metrics
+    - Validate canary artifacts are stored in S3
+  
+  - **Documentation:**
+    - Document canary scripts in `cloudwatch/canaries/README.md`
+    - Update aws-secret.md with:
+      - Canary names and ARNs
+      - S3 bucket for artifacts
+      - SNS topic ARN
+      - CloudWatch dashboard URL
+      - Contributor Insights rule names
+    - Create runbook for responding to canary alerts
+    - Document alarm thresholds and escalation procedures
+  
+  _Requirements: System monitoring, performance tracking, error detection, proactive alerting_
+
 
 ### Phase 7: Page Integration
 
