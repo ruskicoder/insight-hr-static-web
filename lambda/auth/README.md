@@ -188,7 +188,7 @@ This script will:
 
 ## API Endpoints
 
-After deployment, the following endpoints will be available:
+### POST /aument, the following endpoints will be available:
 
 - **POST** `https://lqk4t6qzag.execute-api.ap-southeast-1.amazonaws.com/dev/auth/login`
 - **POST** `https://lqk4t6qzag.execute-api.ap-southeast-1.amazonaws.com/dev/auth/register`
