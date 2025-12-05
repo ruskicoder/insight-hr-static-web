@@ -1914,7 +1914,492 @@ This implementation plan breaks down the InsightHR Static Web Interface MVP into
   
   _Requirements: Project documentation accuracy, stakeholder communication_
 
-- [ ] 11.10 Hotfix - CloudWatch Monitoring Setup (Canaries & Contributor Insights)
+- [ ] 11.10 Hotfix - Lambda README Documentation Update
+  
+  **Objective:** Create/update README.md files for all Lambda functions to reflect current implementation and deployed URLs
+  
+  **Lambda Functions to Document:**
+  
+  - **1. Authentication Lambdas** (`lambda/auth/`)
+    - `auth_google_handler.py` - Google OAuth login/register
+    - `password_reset_handler.py` - Password reset request/approve/deny
+    - Create/update `lambda/auth/README.md`:
+      - Function purpose and workflow
+      - Environment variables required
+      - API Gateway endpoints (with actual deployed URLs from aws-secret.md)
+      - Request/response examples
+      - Error codes and handling
+      - Testing instructions with curl/Postman examples
+      - Deployment instructions
+  
+  - **2. User Management Lambdas** (`lambda/users/`)
+    - `users_handler.py` - User CRUD operations
+    - `users_bulk_handler.py` - Bulk user import
+    - Create/update `lambda/users/README.md`:
+      - Function purpose and operations
+      - Environment variables
+      - API endpoints with deployed URLs
+      - Request/response schemas
+      - Role-based access control rules
+      - Testing examples
+      - Deployment steps
+  
+  - **3. Employee Management Lambdas** (`lambda/employees/`)
+    - `employees_handler.py` - Employee CRUD operations
+    - `employees_bulk_handler.py` - Bulk employee import
+    - Create/update `lambda/employees/README.md`:
+      - Function purpose and operations
+      - Environment variables
+      - API endpoints with deployed URLs
+      - Department filtering logic
+      - Request/response examples
+      - Testing instructions
+      - Deployment steps
+  
+  - **4. Performance Lambdas** (`lambda/performance/`)
+    - `performance_handler.py` - Performance data queries
+    - Create/update `lambda/performance/README.md`:
+      - Function purpose and data sources
+      - Environment variables
+      - API endpoints with deployed URLs
+      - Query filters and parameters
+      - Role-based data filtering
+      - Request/response examples
+      - Testing instructions
+  
+  - **5. Performance Score Lambdas** (`lambda/performance-scores/`)
+    - `performance_scores_handler.py` - Score CRUD and bulk operations
+    - Create/update `lambda/performance-scores/README.md`:
+      - Function purpose and operations
+      - Environment variables
+      - API endpoints with deployed URLs
+      - Bulk operations and template format
+      - Request/response schemas
+      - Testing examples
+      - Deployment steps
+  
+  - **6. Attendance Lambdas** (`lambda/attendance/`)
+    - `attendance_handler.py` - Attendance CRUD and check-in/out
+    - Create/update `lambda/attendance/README.md`:
+      - Function purpose and operations
+      - Environment variables
+      - API endpoints with deployed URLs (including public endpoints)
+      - Status calculation logic (work/late/absent/off/OT/early_bird)
+      - 360 points calculation formula
+      - Public check-in/check-out flow
+      - Request/response examples
+      - Testing instructions
+      - Deployment steps
+  
+  - **7. Chatbot Lambda** (`lambda/chatbot/`)
+    - `chatbot_handler.py` - AI assistant with Bedrock
+    - Create/update `lambda/chatbot/README.md`:
+      - Function purpose and AI integration
+      - Environment variables (BEDROCK_MODEL_ID, etc.)
+      - API endpoints with deployed URLs
+      - Prompt injection detection
+      - Context provider logic
+      - Role-based data access
+      - Request/response examples
+      - Testing with sample queries
+      - Deployment steps
+  
+  - **8. KPIs Lambda** (`lambda/kpis/`)
+    - `kpis_handler.py` - KPI operations
+    - Create/update `lambda/kpis/README.md`:
+      - Function purpose and operations
+      - Environment variables
+      - API endpoints with deployed URLs
+      - Request/response examples
+      - Testing instructions
+      - Deployment steps
+  
+  **README Template Structure:**
+  
+  Each README.md should follow this structure:
+  ```markdown
+  # [Lambda Function Name]
+  
+  ## Overview
+  Brief description of function purpose and role in the system
+  
+  ## Environment Variables
+  - `VARIABLE_NAME`: Description and example value
+  - `AWS_REGION`: ap-southeast-1
+  
+  ## API Endpoints
+  
+  ### Endpoint 1: [Method] [Path]
+  - **URL**: https://[api-gateway-id].execute-api.ap-southeast-1.amazonaws.com/dev/[path]
+  - **Auth**: Cognito JWT (Admin/Manager/Employee) or Public
+  - **Request Body**: JSON schema
+  - **Response**: JSON schema
+  - **Example**:
+    ```bash
+    curl -X POST https://[url] \
+      -H "Authorization: Bearer [token]" \
+      -H "Content-Type: application/json" \
+      -d '{"field": "value"}'
+    ```
+  
+  ## Role-Based Access Control
+  - Admin: Full access description
+  - Manager: Department-filtered access description
+  - Employee: Own data only description
+  
+  ## Error Codes
+  - 400: Bad Request - Description
+  - 401: Unauthorized - Description
+  - 403: Forbidden - Description
+  - 500: Internal Server Error - Description
+  
+  ## Testing
+  Step-by-step testing instructions with examples
+  
+  ## Deployment
+  ```bash
+  # Package and deploy commands
+  cd lambda/[function-name]
+  zip -r function.zip .
+  aws lambda update-function-code --function-name [name] --zip-file fileb://function.zip --region ap-southeast-1
+  ```
+  
+  ## Dependencies
+  - boto3
+  - Other packages
+  
+  ## Last Updated
+  [Date] - [Brief change description]
+  ```
+  
+  **Implementation Steps:**
+  
+  - **Step 1**: Read aws-secret.md to get all deployed API Gateway URLs
+  - **Step 2**: For each Lambda folder, create or update README.md
+  - **Step 3**: Document all endpoints with actual deployed URLs
+  - **Step 4**: Add curl/Postman examples for testing
+  - **Step 5**: Document role-based access rules
+  - **Step 6**: Add deployment instructions
+  - **Step 7**: Review all READMEs for consistency and accuracy
+  
+  **Testing:**
+  - Verify all URLs in READMEs match aws-secret.md
+  - Test curl examples work with actual endpoints
+  - Verify all environment variables are documented
+  - Check deployment instructions are accurate
+  
+  **Documentation:**
+  - Update main README.md with links to Lambda READMEs
+  - Add section: "Lambda Functions Documentation"
+  - List all Lambda functions with links to their READMEs
+  
+  _Requirements: Documentation, deployment URLs, testing instructions_
+
+- [ ] 11.11 Hotfix - Mobile Responsive Design for Entire Website
+  
+  **Objective:** Make the entire InsightHR web application mobile-friendly with proper responsive design for all screen sizes
+  
+  **Target Screen Sizes:**
+  - Mobile: 320px - 767px (portrait and landscape)
+  - Tablet: 768px - 1023px (portrait and landscape)
+  - Desktop: 1024px+ (existing design)
+  
+  **Global Responsive Updates:**
+  
+  - **1. Layout Components** (`src/components/layout/`)
+    - **Header.tsx**:
+      - Mobile: Hamburger menu icon, hide navigation links
+      - Tablet: Show condensed navigation
+      - Desktop: Full navigation bar (existing)
+      - Add responsive logo sizing
+      - Stack user profile dropdown on mobile
+    
+    - **Sidebar.tsx**:
+      - Mobile: Collapsible drawer (slide from left)
+      - Tablet: Collapsible sidebar with icons only
+      - Desktop: Full sidebar (existing)
+      - Add touch-friendly menu items (larger tap targets)
+      - Implement overlay/backdrop for mobile drawer
+    
+    - **MobileMenu.tsx** (already exists):
+      - Verify works correctly on all mobile devices
+      - Add smooth animations for open/close
+      - Ensure touch gestures work (swipe to close)
+      - Test on iOS and Android browsers
+    
+    - **MainLayout.tsx**:
+      - Adjust padding/margins for mobile
+      - Stack content vertically on mobile
+      - Responsive grid system (12-column → 4-column → 1-column)
+  
+  - **2. Authentication Pages** (`src/pages/`)
+    - **LoginPage.tsx**:
+      - Mobile: Full-width form, larger input fields
+      - Tablet: Centered form with max-width
+      - Desktop: Existing design
+      - Increase button sizes for touch (min 44px height)
+      - Stack Google OAuth button below login form on mobile
+    
+    - **PasswordResetRequestPage.tsx**:
+      - Mobile: Full-width form
+      - Responsive input fields and buttons
+      - Stack elements vertically
+  
+  - **3. Dashboard** (`src/pages/DashboardPage.tsx`, `src/components/dashboard/`)
+    - **PerformanceDashboard.tsx**:
+      - Mobile: Stack all charts vertically (1 column)
+      - Tablet: 2-column grid for charts
+      - Desktop: 3-4 column grid (existing)
+      - Add horizontal scroll for wide tables
+      - Responsive chart sizing (Recharts responsive container)
+    
+    - **FilterPanel.tsx**:
+      - Mobile: Collapsible filter panel (accordion style)
+      - Tablet: Horizontal filter bar
+      - Desktop: Existing layout
+      - Stack filter inputs vertically on mobile
+      - Add "Apply Filters" button on mobile
+    
+    - **DataTable.tsx**:
+      - Mobile: Card view instead of table (stack rows as cards)
+      - Tablet: Horizontal scroll for table
+      - Desktop: Full table (existing)
+      - Responsive pagination controls
+      - Touch-friendly sort buttons
+    
+    - **Charts** (LineChart, BarChart, PieChart):
+      - Use Recharts ResponsiveContainer
+      - Adjust font sizes for mobile
+      - Reduce legend size on mobile
+      - Stack legends vertically on mobile
+      - Adjust margins and padding
+    
+    - **LiveClock.tsx**:
+      - Mobile: Smaller font size, compact layout
+      - Tablet: Medium font size
+      - Desktop: Existing size
+  
+  - **4. Admin Pages** (`src/pages/AdminPage.tsx`, `src/components/admin/`)
+    - **UserManagement.tsx**:
+      - Mobile: Stack tabs vertically, full-width content
+      - Tablet: Horizontal tabs with scroll
+      - Desktop: Existing layout
+      - Responsive table → card view on mobile
+    
+    - **UserList.tsx**:
+      - Mobile: Card view with key info (name, email, role)
+      - Tablet: Condensed table with horizontal scroll
+      - Desktop: Full table (existing)
+      - Touch-friendly action buttons (larger, spaced)
+      - Swipe actions for edit/delete on mobile
+    
+    - **UserForm.tsx**:
+      - Mobile: Full-width inputs, stack vertically
+      - Tablet: 2-column form layout
+      - Desktop: Existing layout
+      - Larger input fields for touch (min 44px height)
+      - Responsive dropdowns and selectors
+    
+    - **EmployeeManagement.tsx**:
+      - Mobile: Card view for employee list
+      - Tablet: Condensed table
+      - Desktop: Full table (existing)
+      - Responsive filters and search
+    
+    - **PerformanceScoreManagement.tsx**:
+      - Mobile: Vertical list view instead of calendar
+      - Tablet: Condensed calendar with horizontal scroll
+      - Desktop: Full calendar (existing)
+      - Touch-friendly cell selection
+      - Responsive score detail modal
+    
+    - **CalendarView.tsx**:
+      - Mobile: List view (employee + scores stacked)
+      - Tablet: Horizontal scroll calendar
+      - Desktop: Full calendar grid (existing)
+      - Responsive year/quarter selectors
+    
+    - **PasswordRequestsPanel.tsx**:
+      - Mobile: Card view for requests
+      - Tablet: Condensed table
+      - Desktop: Full table (existing)
+      - Touch-friendly approve/deny buttons
+  
+  - **5. Employee Pages** (`src/pages/EmployeesPage.tsx`)
+    - Mobile: Card view for employee list
+    - Tablet: Condensed table with scroll
+    - Desktop: Full table (existing)
+    - Responsive filters and search
+    - Touch-friendly action buttons
+  
+  - **6. Profile Page** (`src/pages/ProfilePage.tsx`)
+    - Mobile: Stack profile sections vertically
+    - Tablet: 2-column layout
+    - Desktop: Existing layout
+    - Responsive avatar and info display
+    - Full-width edit form on mobile
+  
+  - **7. Chatbot Page** (`src/pages/ChatbotPage.tsx`, `src/components/chatbot/`)
+    - **ChatbotPage.tsx**:
+      - Mobile: Full-screen chat interface
+      - Tablet: Centered chat with max-width
+      - Desktop: Existing layout
+      - Responsive message bubbles
+    
+    - **MessageList.tsx**:
+      - Mobile: Full-width messages, smaller font
+      - Tablet: Medium-width messages
+      - Desktop: Existing layout
+      - Responsive timestamps and avatars
+    
+    - **MessageInput.tsx**:
+      - Mobile: Full-width input, larger send button
+      - Tablet: Centered input with max-width
+      - Desktop: Existing layout
+      - Touch-friendly send button (min 44px)
+      - Auto-resize textarea on mobile
+  
+  - **8. Attendance Pages** (`src/pages/test/AttendanceTestPage.tsx`, `src/components/attendance/`)
+    - **CheckInCheckOut.tsx** (public page):
+      - Mobile: Full-screen kiosk mode, extra large buttons
+      - Tablet: Centered layout with large buttons
+      - Desktop: Existing layout
+      - Touch-optimized for kiosk use
+      - Larger fonts for readability
+    
+    - **AttendanceManagement.tsx**:
+      - Mobile: Card view for attendance records
+      - Tablet: Condensed table with scroll
+      - Desktop: Full table (existing)
+      - Responsive calendar view
+    
+    - **AttendanceCalendarView.tsx**:
+      - Mobile: List view (employee + attendance stacked)
+      - Tablet: Horizontal scroll calendar
+      - Desktop: Full calendar grid (existing)
+  
+  - **9. Modals and Dialogs** (all modal components)
+    - Mobile: Full-screen modals (100% width/height)
+    - Tablet: Large modals (90% width/height)
+    - Desktop: Existing modal sizes
+    - Touch-friendly close buttons
+    - Responsive form layouts inside modals
+    - Prevent body scroll when modal open on mobile
+  
+  - **10. Forms** (all form components)
+    - Mobile: Full-width inputs, stack vertically
+    - Tablet: 2-column layout where appropriate
+    - Desktop: Existing layouts
+    - Larger input fields (min 44px height for touch)
+    - Larger buttons (min 44px height)
+    - Responsive dropdowns and date pickers
+    - Touch-friendly checkboxes and radio buttons
+  
+  **Tailwind CSS Responsive Utilities:**
+  
+  Use Tailwind's responsive prefixes throughout:
+  - `sm:` - 640px and up (mobile landscape)
+  - `md:` - 768px and up (tablet)
+  - `lg:` - 1024px and up (desktop)
+  - `xl:` - 1280px and up (large desktop)
+  
+  **Common Responsive Patterns:**
+  ```tsx
+  // Stack on mobile, grid on desktop
+  <div className="flex flex-col md:flex-row md:gap-4">
+  
+  // Full width on mobile, max-width on desktop
+  <div className="w-full lg:max-w-4xl lg:mx-auto">
+  
+  // Hide on mobile, show on desktop
+  <div className="hidden md:block">
+  
+  // Show on mobile, hide on desktop
+  <div className="block md:hidden">
+  
+  // Responsive padding
+  <div className="p-4 md:p-6 lg:p-8">
+  
+  // Responsive text size
+  <h1 className="text-2xl md:text-3xl lg:text-4xl">
+  
+  // Responsive grid columns
+  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  ```
+  
+  **Touch Optimization:**
+  - Minimum tap target size: 44x44px (Apple/Google guidelines)
+  - Increase spacing between interactive elements
+  - Add hover states for desktop, active states for mobile
+  - Prevent text selection on buttons and interactive elements
+  - Add touch feedback (scale, opacity changes)
+  
+  **Performance Optimization:**
+  - Lazy load images and heavy components
+  - Use CSS transforms for animations (GPU-accelerated)
+  - Minimize re-renders on scroll/resize
+  - Optimize chart rendering for mobile
+  - Reduce bundle size with code splitting
+  
+  **Testing Requirements:**
+  
+  - **Mobile Devices:**
+    - iPhone SE (375x667) - smallest modern iPhone
+    - iPhone 12/13/14 (390x844) - standard iPhone
+    - iPhone 14 Pro Max (430x932) - largest iPhone
+    - Samsung Galaxy S21 (360x800) - standard Android
+    - Samsung Galaxy S21 Ultra (412x915) - large Android
+  
+  - **Tablets:**
+    - iPad Mini (768x1024) - small tablet
+    - iPad Air (820x1180) - standard tablet
+    - iPad Pro 12.9" (1024x1366) - large tablet
+  
+  - **Browsers:**
+    - Chrome (mobile and desktop)
+    - Safari (iOS and macOS)
+    - Firefox (mobile and desktop)
+    - Edge (desktop)
+  
+  - **Test Scenarios:**
+    - Portrait and landscape orientations
+    - Touch interactions (tap, swipe, pinch-to-zoom)
+    - Keyboard input on mobile
+    - Form submission on mobile
+    - Navigation between pages
+    - Modal interactions
+    - Table scrolling
+    - Chart interactions
+    - Filter panel usage
+    - Chatbot messaging
+    - Check-in/check-out flow
+  
+  **Implementation Steps:**
+  
+  - **Step 1**: Update global.css with responsive utilities
+  - **Step 2**: Update layout components (Header, Sidebar, MainLayout)
+  - **Step 3**: Update authentication pages
+  - **Step 4**: Update dashboard components
+  - **Step 5**: Update admin pages and components
+  - **Step 6**: Update employee pages
+  - **Step 7**: Update profile page
+  - **Step 8**: Update chatbot page
+  - **Step 9**: Update attendance pages
+  - **Step 10**: Update all modals and forms
+  - **Step 11**: Test on all target devices and browsers
+  - **Step 12**: Fix any responsive issues found during testing
+  
+  **Deployment:**
+  - Run `npm run build` and test with `npm run preview`
+  - Test responsive design on localhost with browser dev tools
+  - Deploy to S3: `aws s3 sync dist/ s3://insighthr-web-app-sg --region ap-southeast-1`
+  - Invalidate CloudFront cache
+  - Test on actual mobile devices with live site
+  - Verify all responsive features work correctly
+  
+  _Requirements: Mobile responsiveness, touch optimization, cross-device compatibility_
+
+- [ ] 11.12 Hotfix - CloudWatch Monitoring Setup (Canaries & Contributor Insights)
   
   **Objective:** Set up comprehensive CloudWatch monitoring for critical application workflows and error tracking
   
