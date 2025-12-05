@@ -1,84 +1,106 @@
-# KPI Management Lambda
+# KPIs Lambda Functions
+
+KPI calculation and aggregation Lambda functions for InsightHR platform.
 
 ## Overview
-This Lambda function handles KPI (Key Performance Indicator) management operations for the InsightHR system.
 
-## Deployment Status
-✅ Lambda function deployed: `insighthr-kpis-handler`
-✅ ARN: `arn:aws:lambda:ap-southeast-1:151507815244:function:insighthr-kpis-handler`
-✅ API Gateway endpoints configured and deployed
-✅ CORS enabled on all endpoints
-✅ Cognito authorizer configured
-✅ Deployment date: 2025-11-23
+Handles KPI calculations, performance metrics aggregation, and dashboard data.
 
-## API Endpoints
-All endpoints are deployed and accessible:
+## Functions
 
-- **GET /kpis** - List all KPIs (with optional filters: category, dataType, isActive)
-- **POST /kpis** - Create new KPI (Admin only)
-- **GET /kpis/{kpiId}** - Get single KPI by ID
-- **PUT /kpis/{kpiId}** - Update KPI (Admin only)
-- **DELETE /kpis/{kpiId}** - Soft delete KPI (Admin only, sets isActive=false)
+### kpis_handler.py
+KPI calculation and aggregation handler.
 
-Base URL: `https://lqk4t6qzag.execute-api.ap-southeast-1.amazonaws.com/dev`
+**Endpoints:**
+- `GET /kpis/dashboard` - Get dashboard KPIs (overview cards, trends, distribution)
+- `GET /kpis/department/{department}` - Get department-specific KPIs
+- `GET /kpis/employee/{employeeId}` - Get employee-specific KPIs
+- `GET /kpis/trends` - Get performance trends over time
+- `GET /kpis/distribution` - Get score distribution data
 
-## Features
-- **Role-based Authorization**: Admin-only operations for create, update, delete
-- **Soft Delete**: DELETE operation sets isActive=false instead of removing records
-- **Unique Name Validation**: Prevents duplicate KPI names
-- **Category Organization**: KPIs can be organized by category
-- **Data Type Support**: number, percentage, boolean, text
-- **CORS Enabled**: All endpoints support CORS for frontend integration
+## Deployment
 
-## Testing
-Use the provided test script:
 ```powershell
-# Interactive test (requires manual token from browser)
-./test-kpi-simple.ps1
-```
+# Deploy Lambda function
+.\deploy-kpis-handler.ps1
 
-Or test manually with curl:
-```bash
-# List KPIs
-curl -H "Authorization: Bearer <token>" https://lqk4t6qzag.execute-api.ap-southeast-1.amazonaws.com/dev/kpis
+# Setup API Gateway endpoints
+.\setup-api-gateway.ps1
 
-# Create KPI
-curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
-  -d '{"name":"Customer Satisfaction","description":"Average customer rating","dataType":"number","category":"Customer Service"}' \
-  https://lqk4t6qzag.execute-api.ap-southeast-1.amazonaws.com/dev/kpis
-
-# Get single KPI
-curl -H "Authorization: Bearer <token>" https://lqk4t6qzag.execute-api.ap-southeast-1.amazonaws.com/dev/kpis/{kpiId}
-
-# Update KPI
-curl -X PUT -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
-  -d '{"description":"Updated description"}' \
-  https://lqk4t6qzag.execute-api.ap-southeast-1.amazonaws.com/dev/kpis/{kpiId}
-
-# Soft delete KPI
-curl -X DELETE -H "Authorization: Bearer <token>" https://lqk4t6qzag.execute-api.ap-southeast-1.amazonaws.com/dev/kpis/{kpiId}
+# Create endpoints
+.\create-endpoints.ps1
 ```
 
 ## Environment Variables
-- DYNAMODB_KPIS_TABLE: insighthr-kpis-dev
 
-## DynamoDB Table
-- Table: insighthr-kpis-dev
-- Primary Key: kpiId (String)
-- GSI: category-index (category as HASH)
-- Status: ACTIVE
-- Item Count: 0 (ready for KPI creation)
+- `PERFORMANCE_SCORES_TABLE` - DynamoDB table (insighthr-performance-scores-dev)
+- `EMPLOYEES_TABLE` - DynamoDB table (insighthr-employees-dev)
+- `ATTENDANCE_TABLE` - DynamoDB table (insighthr-attendance-history-dev)
+- `REGION` - AWS region (ap-southeast-1)
 
-## Lambda Handler Functions
-- `list_kpis()` - Scan all KPIs with optional filters
-- `get_kpi()` - Get single KPI by ID
-- `create_kpi()` - Create new KPI with validation
-- `update_kpi()` - Update existing KPI
-- `delete_kpi()` - Soft delete (set isActive=false)
+## IAM Permissions Required
 
-## Error Handling
-- 401: Unauthorized (invalid or missing token)
-- 403: Forbidden (non-Admin trying Admin-only operations)
-- 404: KPI not found
-- 400: Bad request (missing required fields, duplicate name)
-- 500: Internal server error
+- `dynamodb:Scan`
+- `dynamodb:Query`
+- `dynamodb:GetItem`
+
+## API Gateway Integration
+
+- **API ID**: lqk4t6qzag
+- **Stage**: prod
+- **Base URL**: https://lqk4t6qzag.execute-api.ap-southeast-1.amazonaws.com/prod
+- **Authorization**: Cognito User Pool (ap-southeast-1_rzDtdAhvp)
+
+## KPI Calculations
+
+### Dashboard Overview
+- Total Employees
+- Average Performance Score
+- Highest Score
+- Lowest Score
+- Department Breakdown
+- Performance Trends (quarterly)
+- Score Distribution
+
+### Department KPIs
+- Department average score
+- Employee count
+- Top performers
+- Score trends
+
+### Employee KPIs
+- Individual performance scores
+- Quarterly trends
+- Attendance metrics
+- 360 points
+
+## Role-Based Access
+
+- **Admin**: Access to all KPIs across all departments
+- **Manager**: Access to department-specific KPIs
+- **Employee**: Access to own KPIs only
+
+## Testing
+
+```powershell
+# Test KPI endpoints
+.\test-kpi-endpoints.ps1
+
+# Test KPI backend
+.\test-kpi-backend.ps1
+
+# Simple KPI test
+.\test-kpi-simple.ps1
+```
+
+## Data Sources
+
+- Performance Scores: 900+ quarterly records
+- Employees: 300+ across 5 departments
+- Attendance: 9,300+ historical records
+
+## Related
+
+- Frontend: `insighthr-web/src/services/performanceService.ts`
+- Store: `insighthr-web/src/store/performanceStore.ts`
+- Components: `insighthr-web/src/components/dashboard/PerformanceDashboard.tsx`
